@@ -19,7 +19,7 @@ def data_cleaning(df):
         (df['Best3SquatKg'].notna()) &
         (df['Best3BenchKg'].notna()) &
         (df['Best3DeadliftKg'].notna()) 
-    ]
+    ].copy()
 
     # Convert to datetime
     data['Date'] = pd.to_datetime(data['Date'])

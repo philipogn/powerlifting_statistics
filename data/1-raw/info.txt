@@ -1,2 +1,4 @@
 Unable to push raw data, over 700 MB in size
-Accessible at: https://openpowerlifting.gitlab.io/opl-csv/bulk-csv.html
+Accessible at: https://openpowerlifting.gitlab.io/opl-csv/bulk-csv.html (version of date: 2025-09-27)
+
+Possible with Git LFS, will look into later
