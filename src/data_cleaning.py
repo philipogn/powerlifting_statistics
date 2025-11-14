@@ -1,11 +1,13 @@
-'''Event: only SBD
+'''
+Event: only SBD
 Equipment: Raw only
 Age: drop empty fields
-Division: Open only (catches all with 'O', excludes lowercase 'o' such as 'Juniors')
+Division: Open, MR-O, FR-O only, as these are the standard
 TotalKg: drop empty fields (no DQs)
 Place: must be a number (no DQs)
 ParentFederation: only IPF
-Best3: ensure all 3 lifts are successful (no DQs)'''
+Best3s: ensure all 3 lifts are successful (no DQs)
+'''
 
 def data_cleaning(df):
     data = df[
@@ -20,6 +22,7 @@ def data_cleaning(df):
         (df['Best3BenchKg'].notna()) &
         (df['Best3DeadliftKg'].notna()) 
     ].copy()
+
     essential_columns = [
         'Name', 'Date', 'Sex', 'Age', 'BodyweightKg',
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 
@@ -34,9 +37,4 @@ def data_cleaning(df):
     data = data.sort_values(['Name', 'Date']).reset_index(drop=True)
 
     data.to_csv('../data/2-preprocessed/cleanIPF_minimal.csv', index=False)
-
-    # print(f"Original rows: {len(df)}")
-    # print(f"Filtered rows: {len(data)}")
-    # print(f"Unique lifters: {data['Name'].nunique()}")
-    # print(f"Male: {len(data[data['Sex']=='M'])}, Female: {len(data[data['Sex']=='F'])}")
     return data
