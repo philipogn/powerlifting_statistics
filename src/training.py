@@ -5,6 +5,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import numpy as np
 import joblib
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler('training.log'), logging.StreamHandler()])
+
+logger = logging.getLogger(__name__)
+
 
 class TrainingPipeline():
     def __init__(self, dataframe):
@@ -28,7 +35,7 @@ class TrainingPipeline():
 
 
     def prepare_dataset(self):
-        print('\nEncoding and splitting dataset...')
+        logger.info('Encoding and splitting dataset...')
         self.dataframe['SexEncoded'] = self.dataframe['Sex'].map({'M': 1, 'F': 0})
         self.feature_columns.append('SexEncoded')
         self.dataframe[self.feature_columns] = self.dataframe[self.feature_columns].fillna(0)
@@ -41,11 +48,12 @@ class TrainingPipeline():
         self.train_df = self.dataframe[self.dataframe['Date'] < split_date]
         self.test_df = self.dataframe[self.dataframe['Date'] >= split_date]
 
-        print(f"\n==Data split==")
-        print(f"Training date range: {self.train_df['Date'].min()} to {self.train_df['Date'].max()}")
-        print(f"Testing date range: {self.test_df['Date'].min()} to {self.test_df['Date'].max()}")
-        print(f"Training examples: {len(self.train_df)}")
-        print(f"Testing examples: {len(self.test_df)}")
+        logger.info(f"""
+                    ==Data split==
+                    Training date range: {self.train_df['Date'].min()} to {self.train_df['Date'].max()}
+                    Testing date range: {self.test_df['Date'].min()} to {self.test_df['Date'].max()}
+                    Training examples: {len(self.train_df)}
+                    Testing examples: {len(self.test_df)}""")
 
         self.X_train = self.train_df[self.feature_columns]
         self.X_test = self.test_df[self.feature_columns]
@@ -53,21 +61,21 @@ class TrainingPipeline():
         self.y_test = self.test_df['TotalKg']
 
     def train_models(self):
-        print('\nTraining Logistic Regression model')
+        logger.info('Training Logistic Regression model')
         lr = LinearRegression()
         lr.fit(self.X_train, self.y_train)
         lr_y_pred = lr.predict(self.X_test)
         self.models['LR'] = lr
         self.predictions['LR'] = lr_y_pred
 
-        print('\nTraining Random Forest Regressor model')
+        logger.info('Training Random Forest Regressor model')
         rdr = RandomForestRegressor()
         rdr.fit(self.X_train, self.y_train)
         rdr_y_pred = rdr.predict(self.X_test)
         self.models['RFR'] = rdr
         self.predictions['RFR'] = rdr_y_pred
 
-        print('\nTraining Gradient Boosting Regressor model')
+        logger.info('Training Gradient Boosting Regressor model')
         gbr = GradientBoostingRegressor()
         gbr.fit(self.X_train, self.y_train)
         gbr_y_pred = gbr.predict(self.X_test)
@@ -82,11 +90,12 @@ class TrainingPipeline():
         mse = mean_squared_error(y_true, y_pred)
         r2 = r2_score(y_true, y_pred)
 
-        print(f'\n==={model_name}===')
-        print(f'Mean Absolute Error: {mae:.4f}')
-        print(f'Mean Squared Error: {mse:.4f}')
-        print(f'Root Mean Squared Error: {rmse:.4f}')
-        print(f'R2 Score: {r2:.4f}')
+        logger.info(f"""
+                    ==={model_name}===
+                    Mean Absolute Error: {mae:.4f}
+                    Mean Squared Error: {mse:.4f}
+                    Root Mean Squared Error: {rmse:.4f}
+                    R2 Score: {r2:.4f}""")
 
         return {'MAE': mae, 'MSE': mse, 'RSME': rmse, 'R2': r2}
 
