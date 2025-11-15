@@ -4,16 +4,18 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import numpy as np
+import joblib
 
 class TrainingPipeline():
     def __init__(self, dataframe):
         self.dataframe = dataframe
-        self.feature_columns = ['prev_squat', 'prev_bench', 'prev_deadlift', 'prev_total',
-                                'avg_squat', 'avg_bench', 'avg_deadlift', 'avg_total',
-                                'max_total_ever', 'min_total_ever', 
-                                'squat_gain_per_meet', 'bench_gain_per_meet', 'deadlift_gain_per_meet', 'total_gain_per_meet',
-                                'Age', 'BodyweightKg'
-                                ]
+        self.feature_columns = [
+            'prev_squat', 'prev_bench', 'prev_deadlift', 'prev_total',
+            'avg_squat', 'avg_bench', 'avg_deadlift', 'avg_total',
+            'max_total_ever', 'min_total_ever', 
+            'squat_gain_per_meet', 'bench_gain_per_meet', 'deadlift_gain_per_meet', 'total_gain_per_meet',
+            'Age', 'BodyweightKg'
+        ]
         self.X_train = None
         self.X_test = None
         self.y_train = None
@@ -24,12 +26,9 @@ class TrainingPipeline():
         self.predictions = {}
         self.results = {}
 
-    def load_dataset(self):
-        pass
-
 
     def prepare_dataset(self):
-        print('')
+        print('\nEncoding and splitting dataset...')
         self.dataframe['SexEncoded'] = self.dataframe['Sex'].map({'M': 1, 'F': 0})
         self.feature_columns.append('SexEncoded')
         self.dataframe[self.feature_columns] = self.dataframe[self.feature_columns].fillna(0)
@@ -42,7 +41,7 @@ class TrainingPipeline():
         self.train_df = self.dataframe[self.dataframe['Date'] < split_date]
         self.test_df = self.dataframe[self.dataframe['Date'] >= split_date]
 
-        print(f"Data split:")
+        print(f"\n==Data split==")
         print(f"Training date range: {self.train_df['Date'].min()} to {self.train_df['Date'].max()}")
         print(f"Testing date range: {self.test_df['Date'].min()} to {self.test_df['Date'].max()}")
         print(f"Training examples: {len(self.train_df)}")
@@ -54,23 +53,27 @@ class TrainingPipeline():
         self.y_test = self.test_df['TotalKg']
 
     def train_models(self):
+        print('\nTraining Logistic Regression model')
         lr = LinearRegression()
         lr.fit(self.X_train, self.y_train)
         lr_y_pred = lr.predict(self.X_test)
-        self.models['Linear Regression'] = lr
-        self.predictions['Linear Regression'] = lr_y_pred
+        self.models['LR'] = lr
+        self.predictions['LR'] = lr_y_pred
 
+        print('\nTraining Random Forest Regressor model')
         rdr = RandomForestRegressor()
         rdr.fit(self.X_train, self.y_train)
         rdr_y_pred = rdr.predict(self.X_test)
-        self.models['Random Forest'] = rdr
-        self.predictions['Random Forest'] = rdr_y_pred
+        self.models['RFR'] = rdr
+        self.predictions['RFR'] = rdr_y_pred
 
+        print('\nTraining Gradient Boosting Regressor model')
         gbr = GradientBoostingRegressor()
         gbr.fit(self.X_train, self.y_train)
         gbr_y_pred = gbr.predict(self.X_test)
-        self.models['Gradient Boosting'] = gbr
-        self.predictions['Gradient Boosting'] = gbr_y_pred
+        self.models['GBR'] = gbr
+        self.predictions['GBR'] = gbr_y_pred
+
 
     # Evaluate models
     def evaluate_models(self, y_true, y_pred, model_name):
@@ -87,8 +90,11 @@ class TrainingPipeline():
 
         return {'MAE': mae, 'MSE': mse, 'RSME': rmse, 'R2': r2}
 
+    def save_model(self):
+        for name, model in self.models.items():
+            joblib.dump(model, f'{name}_model.pkl')
+
     def run(self):
-        self.load_dataset()
         self.prepare_dataset()
         self.train_models()
         for model_name, y_pred in self.predictions.items():
@@ -97,6 +103,10 @@ class TrainingPipeline():
         print('\n==Comparison==')
         comparison = pd.DataFrame(self.results).T
         print(comparison.round(2))
+
+        comparison.to_csv('data/4-predictions/model_evaluation.csv')
+        self.save_model()
+    
 
 if __name__ == '__main__':
     df = pd.read_csv('data/3-features/engineered_features.csv')

@@ -7,6 +7,7 @@ class DataCleaningConfig():
     DIVISION = ['Open', 'MR-O', 'FR-O']
     PARENT_FED = 'IPF'
 
+    # essential columns for model and feature engineer (dots could be useful so keeping for now)
     ESSENTIAL_COLUMNS = [
         'Name', 'Date', 'Sex', 'Age', 'BodyweightKg',
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 
