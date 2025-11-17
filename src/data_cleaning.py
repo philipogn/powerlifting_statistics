@@ -4,7 +4,7 @@ class DataCleaningConfig():
     # config constants for data cleaning
     EVENT = 'SBD'
     EQUIPMENT = 'Raw'
-    DIVISION = {'Open': ['Open', 'MR-O', 'FR-O'], 'Juniors': ['Juniors', 'MR-Jr', 'FR-Jr']}
+    DIVISION = ['Open', 'MR-O', 'FR-O']
     PARENT_FED = 'IPF'
 
     # essential columns for model and feature engineer (dots could be useful so keeping for now)
@@ -17,7 +17,7 @@ class DataCleaningConfig():
 Event: only SBD
 Equipment: Raw only
 Age: drop empty fields
-Division: {Open: [Open, MR-O, FR-O] or Juniors: [Juniors, MR-Jr, FR-Jr]}
+Division: [Open, MR-O, FR-O]
 TotalKg: drop empty fields (no disqualifications)
 Place: must be a number (no disqualifications)
 ParentFederation: only IPF
@@ -31,10 +31,10 @@ def data_cleaning(df):
         (df['Event'] == cfg.EVENT) & 
         (df['Equipment'] == cfg.EQUIPMENT) &
         (df['Age'].notna()) &
-        (df['Division'].isin(cfg.DIVISION['Open'])) &
+        (df['Division'].isin(cfg.DIVISION)) &
         (df['TotalKg'].notna()) &
         (df['Place'].str.isnumeric()) &
-        (df['ParentFederation'] == cfg.PARENT_FED) &
+        (df['ParentFederation'] != cfg.PARENT_FED) &
         (df['Best3SquatKg'].notna()) &
         (df['Best3BenchKg'].notna()) &
         (df['Best3DeadliftKg'].notna()) 
@@ -42,7 +42,7 @@ def data_cleaning(df):
 
     data = data[cfg.ESSENTIAL_COLUMNS].copy()
 
-    # Convert to datetime and sort by lifter and date (important for feature engineering)
+    # Convert to datetime and sort by lifter and date (important for time-based feature engineering like calculating progression)
     data['Date'] = pd.to_datetime(data['Date'])
     data = data.sort_values(['Name', 'Date']).reset_index(drop=True)
 
