@@ -46,8 +46,8 @@ def data_cleaning(df):
     data['Date'] = pd.to_datetime(data['Date'])
     data = data.sort_values(['Name', 'Date']).reset_index(drop=True)
 
-    data.to_csv('data/2-preprocessed/cleanIPF_minimal.csv', index=False)
-    print('Successfully cleaned data and saved to "data/2-preprocessed/cleanIPF_minimal.csv"')
+    data.to_csv('data/2-preprocessed/cleanIPF.csv', index=False)
+    print('Successfully cleaned data and saved to "data/2-preprocessed/cleanIPF.csv"')
     return data
 
 if __name__ == '__main__':
