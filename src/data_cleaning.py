@@ -4,7 +4,7 @@ class DataCleaningConfig():
     # config constants for data cleaning
     EVENT = 'SBD'
     EQUIPMENT = 'Raw'
-    DIVISION = ['Open', 'MR-O', 'FR-O']
+    DIVISION = {'Open': ['Open', 'MR-O', 'FR-O'], 'Juniors': ['Juniors', 'MR-Jr', 'FR-Jr']}
     PARENT_FED = 'IPF'
 
     # essential columns for model and feature engineer (dots could be useful so keeping for now)
@@ -17,7 +17,7 @@ class DataCleaningConfig():
 Event: only SBD
 Equipment: Raw only
 Age: drop empty fields
-Division: Open, MR-O, FR-O only, as these are the standard
+Division: {Open: [Open, MR-O, FR-O] or Juniors: [Juniors, MR-Jr, FR-Jr]}
 TotalKg: drop empty fields (no disqualifications)
 Place: must be a number (no disqualifications)
 ParentFederation: only IPF
@@ -31,7 +31,7 @@ def data_cleaning(df):
         (df['Event'] == cfg.EVENT) & 
         (df['Equipment'] == cfg.EQUIPMENT) &
         (df['Age'].notna()) &
-        (df['Division'].isin(cfg.DIVISION)) &
+        (df['Division'].isin(cfg.DIVISION['Open'])) &
         (df['TotalKg'].notna()) &
         (df['Place'].str.isnumeric()) &
         (df['ParentFederation'] == cfg.PARENT_FED) &
