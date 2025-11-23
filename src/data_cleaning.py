@@ -17,7 +17,9 @@ class DataCleaningConfig():
     # config constants for data cleaning
     EVENT = 'SBD'
     EQUIPMENT = 'Raw'
-    DIVISION = ['Open', 'MR-O', 'FR-O'] # not including Juniors, duplicated lifter data in Open divisions
+    DIVISION = ['Open', 'MR-O', 'FR-O', 'Juniors', 'MR-Jr', 'FR-Jr', 'Sub-Juniors',
+                'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'
+                ]
     PARENT_FED = 'IPF'
 
     # essential columns for model and feature engineer (dots could be useful, but ensure no data leakage)
@@ -34,7 +36,7 @@ def select_target_data(df):
     '''
     Event: only SBD
     Equipment: Raw only
-    Division: [Open, MR-O, FR-O]
+    Division: all common/important divisions, filtering out superfluous divs
     ParentFederation: only IPF
     '''
 
@@ -50,12 +52,15 @@ def select_target_data(df):
 
 
 def remove_duplicate_entries(df):
-    prioritise_juniors = ['Juniors', 'MR-Jr', 'FR-Jr'] # prioritise these divisions
+    # prioritise these divisions
+    prioritise_divisions = ['Sub-Juniors', 'Juniors', 'MR-Jr', 'FR-Jr',
+                            'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'
+                            ] 
 
     # checking columns of duplicate values, should just work with 'Name' and 'Date'
     duplicate_cols = ['Name', 'Date', 'TotalKg']
 
-    df['is_junior'] = df['Division'].isin(prioritise_juniors).astype(int)
+    df['is_junior'] = df['Division'].isin(prioritise_divisions).astype(int)
     df['priority'] = df['is_junior'].apply(lambda x: 1 if x == 1 else 2)
 
     df_clean = df.sort_values('priority').drop_duplicates(
@@ -99,13 +104,12 @@ def convert_to_csv(data, save_path):
 
 def run(data, save_path):
     target_data = select_target_data(data)
-    target_data = remove_duplicate_entries(target_data)
-    # clean_data = data_cleaning(target_data)
-    # convert_to_csv(clean_data, save_path)
-    convert_to_csv(target_data, save_path)
+    clean_dupes = remove_duplicate_entries(target_data)
+    clean_data = data_cleaning(clean_dupes)
+    convert_to_csv(clean_data, save_path)
 
 if __name__ == '__main__':
     raw_data = pd.read_csv('data/1-raw/openpowerlifting-2025-09-27.csv')
     # save_path = 'data/2-preprocessed/cleanIPF.csv'
-    save_path = 'data/1-raw/openpowerlifting-2025-09-27-IPF-Open.csv'
+    save_path = 'data/2-preprocessed/openpowerlifting-IPF-clean.csv'
     run(raw_data, save_path)
