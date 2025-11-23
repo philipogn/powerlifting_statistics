@@ -48,6 +48,24 @@ def select_target_data(df):
     ].copy()
     return data
 
+
+def remove_duplicate_entries(df):
+    prioritise_juniors = ['Juniors', 'MR-Jr', 'FR-Jr'] # prioritise these divisions
+
+    # checking columns of duplicate values, should just work with 'Name' and 'Date'
+    duplicate_cols = ['Name', 'Date', 'TotalKg']
+
+    df['is_junior'] = df['Division'].isin(prioritise_juniors).astype(int)
+    df['priority'] = df['is_junior'].apply(lambda x: 1 if x == 1 else 2)
+
+    df_clean = df.sort_values('priority').drop_duplicates(
+        subset=duplicate_cols,
+        keep='first'
+    ).drop(columns=['is_junior', 'priority'])
+
+    return df_clean
+
+
 def data_cleaning(df):
     '''
     Age: drop empty fields
@@ -73,22 +91,6 @@ def data_cleaning(df):
     data['Date'] = pd.to_datetime(data['Date'])
     data = data.sort_values(['Name', 'Date']).reset_index(drop=True)
     return data
-
-def remove_duplicate_entries(df):
-    prioritise_juniors = ['Juniors', 'MR-Jr', 'FR-Jr'] # prioritise these divisions
-
-    # checking columns of duplicate values, should just work with 'Name' and 'Date'
-    duplicate_cols = ['Name', 'Age', 'Date' 'BodyweightKg', 'TotalKg']
-
-    df['is_junior'] = df['Division'].isin(prioritise_juniors).astype(int)
-    df['priority'] = df['is_junior'].apply(lambda x: 1 if x == 1 else 2)
-
-    df_clean = df.sort_values('priority').drop_duplicates(
-        subset=duplicate_cols,
-        keep='first'
-    ).drop(columns=['is_junior', 'priority'])
-
-    return df_clean
 
 def convert_to_csv(data, save_path):
     data.to_csv(save_path, index=False)
