@@ -23,6 +23,9 @@ class DataCleaningConfig():
     # essential columns for model and feature engineer (dots could be useful, but ensure no data leakage)
     ESSENTIAL_COLUMNS = [
         'Name', 'Date', 'Sex', 'Age', 'BodyweightKg',
+        # 'Squat1Kg', 'Squat2Kg', 'Squat3Kg',
+        # 'Bench1Kg', 'Bench2Kg', 'Bench3Kg', 
+        # 'Deadlift1Kg', 'Deadlift2Kg', 'Deadlift3Kg', 
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 
         'TotalKg' #, 'Dots'
     ]
@@ -71,6 +74,22 @@ def data_cleaning(df):
     data = data.sort_values(['Name', 'Date']).reset_index(drop=True)
     return data
 
+def remove_duplicate_entries(df):
+    prioritise_juniors = ['Juniors', 'MR-Jr', 'FR-Jr'] # prioritise these divisions
+
+    # checking columns of duplicate values, should just work with 'Name' and 'Date'
+    duplicate_cols = ['Name', 'Age', 'Date' 'BodyweightKg', 'TotalKg']
+
+    df['is_junior'] = df['Division'].isin(prioritise_juniors).astype(int)
+    df['priority'] = df['is_junior'].apply(lambda x: 1 if x == 1 else 2)
+
+    df_clean = df.sort_values('priority').drop_duplicates(
+        subset=duplicate_cols,
+        keep='first'
+    ).drop(columns=['is_junior', 'priority'])
+
+    return df_clean
+
 def convert_to_csv(data, save_path):
     data.to_csv(save_path, index=False)
     print(f'Successfully cleaned data and saved to "{save_path}"')
@@ -78,6 +97,7 @@ def convert_to_csv(data, save_path):
 
 def run(data, save_path):
     target_data = select_target_data(data)
+    target_data = remove_duplicate_entries(target_data)
     # clean_data = data_cleaning(target_data)
     # convert_to_csv(clean_data, save_path)
     convert_to_csv(target_data, save_path)
