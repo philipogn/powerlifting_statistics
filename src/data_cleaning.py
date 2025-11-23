@@ -17,7 +17,8 @@ class DataCleaningConfig():
     # config constants for data cleaning
     EVENT = 'SBD'
     EQUIPMENT = 'Raw'
-    DIVISION = ['Open', 'MR-O', 'FR-O', 'Juniors', 'MR-Jr', 'FR-Jr', 'Sub-Juniors',
+    DIVISION = ['Open', 'MR-O', 'FR-O', 
+                'Juniors', 'MR-Jr', 'FR-Jr', 'Sub-Juniors',
                 'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'
                 ]
     PARENT_FED = 'IPF'
@@ -32,84 +33,88 @@ class DataCleaningConfig():
         'TotalKg' #, 'Dots'
     ]
 
-def select_target_data(df):
-    '''
-    Event: only SBD
-    Equipment: Raw only
-    Division: all common/important divisions, filtering out superfluous divs
-    ParentFederation: only IPF
-    '''
-
-    cfg = DataCleaningConfig()
-    print('Filtering to only target data (IPF, Raw, SBD)...')
-    data = df[
-        (df['Event'] == cfg.EVENT) & 
-        (df['Equipment'] == cfg.EQUIPMENT) &
-        (df['Division'].isin(cfg.DIVISION)) &
-        (df['ParentFederation'] == cfg.PARENT_FED)
-    ].copy()
-    return data
 
 
-def remove_duplicate_entries(df):
-    # prioritise these divisions
-    prioritise_divisions = ['Sub-Juniors', 'Juniors', 'MR-Jr', 'FR-Jr',
-                            'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'
-                            ] 
-
-    # checking columns of duplicate values, should just work with 'Name' and 'Date'
-    duplicate_cols = ['Name', 'Date', 'TotalKg']
-
-    df['is_junior'] = df['Division'].isin(prioritise_divisions).astype(int)
-    df['priority'] = df['is_junior'].apply(lambda x: 1 if x == 1 else 2)
-
-    df_clean = df.sort_values('priority').drop_duplicates(
-        subset=duplicate_cols,
-        keep='first'
-    ).drop(columns=['is_junior', 'priority'])
-
-    return df_clean
 
 
-def data_cleaning(df):
-    '''
-    Age: drop empty fields
-    TotalKg: drop empty fields (no disqualifications)
-    Place: must be a number (no disqualifications)
-    Best3s: ensure all 3 lifts are successful (no disqualifications)
-    '''
+class DataProcessor():
+    def __init__(self, df, save_path):
+        self.df = df
+        self.save_path = save_path
+        self.cfg = DataCleaningConfig()
+        self.prioritise_divisions = ['Sub-Juniors', 'Juniors', 'MR-Jr', 'FR-Jr',
+                                     'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'] 
 
-    cfg = DataCleaningConfig()
-    print('Cleaning and preprocessing data...')
-    data = df[
-        (df['Age'].notna()) &
-        (df['TotalKg'].notna()) &
-        (df['Place'].str.isnumeric()) &
-        (df['Best3SquatKg'].notna()) &
-        (df['Best3BenchKg'].notna()) &
-        (df['Best3DeadliftKg'].notna()) 
-    ].copy()
+    def select_target_data(self, df):
+        '''
+        Event: only SBD
+        Equipment: Raw only
+        Division: all common/important divisions, filtering out superfluous divs
+        ParentFederation: only IPF
+        '''
+        print('Filtering to only target data (IPF, Raw, SBD)...')
+        data = df[
+            (df['Event'] == self.cfg.EVENT) & 
+            (df['Equipment'] == self.cfg.EQUIPMENT) &
+            (df['Division'].isin(self.cfg.DIVISION)) &
+            (df['ParentFederation'] == self.cfg.PARENT_FED)
+        ].copy()
+        return data
 
-    data = data[cfg.ESSENTIAL_COLUMNS].copy()
+    def remove_duplicate_entries(self, df):
+        # checking columns of duplicate values, should just work with 'Name' and 'Date'
+        duplicate_cols = ['Name', 'Date', 'TotalKg']
 
-    # Convert to datetime and sort by lifter and date (important for time-based feature engineering like calculating progression)
-    data['Date'] = pd.to_datetime(data['Date'])
-    data = data.sort_values(['Name', 'Date']).reset_index(drop=True)
-    return data
+        df['is_junior'] = df['Division'].isin(self.prioritise_divisions).astype(int)
+        df['priority'] = df['is_junior'].apply(lambda x: 1 if x == 1 else 2)
 
-def convert_to_csv(data, save_path):
-    data.to_csv(save_path, index=False)
-    print(f'Successfully cleaned data and saved to "{save_path}"')
-    return data
+        df_clean = df.sort_values('priority').drop_duplicates(
+            subset=duplicate_cols,
+            keep='first'
+        ).drop(columns=['is_junior', 'priority'])
 
-def run(data, save_path):
-    target_data = select_target_data(data)
-    clean_dupes = remove_duplicate_entries(target_data)
-    clean_data = data_cleaning(clean_dupes)
-    convert_to_csv(clean_data, save_path)
+        return df_clean
+
+
+    def data_cleaning(self, df):
+        '''
+        Age: drop empty fields
+        TotalKg: drop empty fields (no disqualifications)
+        Place: must be a number (no disqualifications)
+        Best3s: ensure all 3 lifts are successful (no disqualifications)
+        '''
+
+        print('Cleaning and preprocessing data...')
+        data = df[
+            (df['Age'].notna()) &
+            (df['TotalKg'].notna()) &
+            (df['Place'].str.isnumeric()) &
+            (df['Best3SquatKg'].notna()) &
+            (df['Best3BenchKg'].notna()) &
+            (df['Best3DeadliftKg'].notna()) 
+        ].copy()
+
+        data = data[self.cfg.ESSENTIAL_COLUMNS].copy()
+
+        # Convert to datetime and sort by lifter and date (important for time-based feature engineering like calculating progression)
+        data['Date'] = pd.to_datetime(data['Date'])
+        data = data.sort_values(['Name', 'Date']).reset_index(drop=True)
+        return data
+
+    def convert_to_csv(self, data):
+        data.to_csv(self.save_path, index=False)
+        print(f'Successfully cleaned data and saved to "{self.save_path}"')
+        return data
+
+    def run(self):
+        target_data = self.select_target_data(self.df)
+        clean_dupes = self.remove_duplicate_entries(target_data)
+        clean_data = self.data_cleaning(clean_dupes)
+        self.convert_to_csv(clean_data)
 
 if __name__ == '__main__':
     raw_data = pd.read_csv('data/1-raw/openpowerlifting-2025-09-27.csv')
-    # save_path = 'data/2-preprocessed/cleanIPF.csv'
+    # save_path = 'data/1-raw/openpowerlifting-2025-09-27-IPF-clean.csv'
     save_path = 'data/2-preprocessed/openpowerlifting-IPF-clean.csv'
-    run(raw_data, save_path)
+    preprocess = DataProcessor(raw_data, save_path)
+    preprocess.run()
