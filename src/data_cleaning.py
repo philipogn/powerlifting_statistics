@@ -1,20 +1,10 @@
 import pandas as pd
 
-'''
-Raw data columns:
-['Name', 'Sex', 'Event', 'Equipment', 'Age', 'AgeClass',
-'BirthYearClass', 'Division', 'BodyweightKg', 'WeightClassKg',
-'Squat1Kg', 'Squat2Kg', 'Squat3Kg', 'Squat4Kg', 'Best3SquatKg',
-'Bench1Kg', 'Bench2Kg', 'Bench3Kg', 'Bench4Kg', 'Best3BenchKg',
-'Deadlift1Kg', 'Deadlift2Kg', 'Deadlift3Kg', 'Deadlift4Kg',
-'Best3DeadliftKg', 'TotalKg', 'Place', 'Dots', 'Wilks', 'Glossbrenner',
-'Goodlift', 'Tested', 'Country', 'State', 'Federation',
-'ParentFederation', 'Date', 'MeetCountry', 'MeetState', 'MeetTown',
-'MeetName', 'Sanctioned']
-'''
-
 class DataCleaningConfig():
-    # config constants for data cleaning
+    '''
+    Configuration constants for data cleaning
+    And essential columns for model and feature engineer (dots could be useful, but ensure no data leakage)
+    '''
     EVENT = 'SBD'
     EQUIPMENT = 'Raw'
     DIVISION = ['Open', 'MR-O', 'FR-O', 
@@ -23,27 +13,24 @@ class DataCleaningConfig():
                 ]
     PARENT_FED = 'IPF'
 
-    # essential columns for model and feature engineer (dots could be useful, but ensure no data leakage)
     ESSENTIAL_COLUMNS = [
-        'Name', 'Date', 'Sex', 'Age', 'BodyweightKg',
-        # 'Squat1Kg', 'Squat2Kg', 'Squat3Kg',
-        # 'Bench1Kg', 'Bench2Kg', 'Bench3Kg', 
-        # 'Deadlift1Kg', 'Deadlift2Kg', 'Deadlift3Kg', 
+        'Name', 'Date', 'Sex', 'Age', 'BodyweightKg', 'Division',
+        'Squat1Kg', 'Squat2Kg', 'Squat3Kg',
+        'Bench1Kg', 'Bench2Kg', 'Bench3Kg', 
+        'Deadlift1Kg', 'Deadlift2Kg', 'Deadlift3Kg', 
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 
         'TotalKg' #, 'Dots'
     ]
 
 
-
-
-
-class DataProcessor():
-    def __init__(self, df, save_path):
-        self.df = df
+class DataProcessor(DataCleaningConfig):
+    def __init__(self, raw_df: pd.DataFrame, save_path: str):
+        self.df = raw_df
         self.save_path = save_path
-        self.cfg = DataCleaningConfig()
-        self.prioritise_divisions = ['Sub-Juniors', 'Juniors', 'MR-Jr', 'FR-Jr',
-                                     'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'] 
+        self.prioritise_divisions = [
+            'Sub-Juniors', 'Juniors', 'MR-Jr', 'FR-Jr',
+            'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'
+            ]
 
     def select_target_data(self, df):
         '''
@@ -54,10 +41,10 @@ class DataProcessor():
         '''
         print('Filtering to only target data (IPF, Raw, SBD)...')
         data = df[
-            (df['Event'] == self.cfg.EVENT) & 
-            (df['Equipment'] == self.cfg.EQUIPMENT) &
-            (df['Division'].isin(self.cfg.DIVISION)) &
-            (df['ParentFederation'] == self.cfg.PARENT_FED)
+            (df['Event'] == self.EVENT) & 
+            (df['Equipment'] == self.EQUIPMENT) &
+            (df['Division'].isin(self.DIVISION)) &
+            (df['ParentFederation'] == self.PARENT_FED)
         ].copy()
         return data
 
@@ -78,7 +65,6 @@ class DataProcessor():
 
     def data_cleaning(self, df):
         '''
-        Age: drop empty fields
         TotalKg: drop empty fields (no disqualifications)
         Place: must be a number (no disqualifications)
         Best3s: ensure all 3 lifts are successful (no disqualifications)
@@ -86,7 +72,6 @@ class DataProcessor():
 
         print('Cleaning and preprocessing data...')
         data = df[
-            (df['Age'].notna()) &
             (df['TotalKg'].notna()) &
             (df['Place'].str.isnumeric()) &
             (df['Best3SquatKg'].notna()) &
@@ -94,7 +79,7 @@ class DataProcessor():
             (df['Best3DeadliftKg'].notna()) 
         ].copy()
 
-        data = data[self.cfg.ESSENTIAL_COLUMNS].copy()
+        data = data[self.ESSENTIAL_COLUMNS].copy()
 
         # Convert to datetime and sort by lifter and date (important for time-based feature engineering like calculating progression)
         data['Date'] = pd.to_datetime(data['Date'])
