@@ -1,9 +1,9 @@
 import pandas as pd
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import GradientBoostingRegressor
+from xgboost import XGBRegressor
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import joblib
 import logging
 
@@ -16,28 +16,24 @@ logger = logging.getLogger(__name__)
 class TrainingPipeline():
     def __init__(self, dataframe):
         self.dataframe = dataframe
-        self.feature_columns = [
-            'prev_squat', 'prev_bench', 'prev_deadlift', 'prev_total',
-            'avg_squat', 'avg_bench', 'avg_deadlift', 'avg_total',
-            'max_total_ever', 'min_total_ever', 
-            'squat_gain_per_meet', 'bench_gain_per_meet', 'deadlift_gain_per_meet', 'total_gain_per_meet',
-            'Age', 'BodyweightKg'
-        ]
+        self.feature_columns = ['prev_squat', 'prev_bench', 'prev_deadlift', 
+                                'avg_squat', 'avg_bench', 'avg_deadlift', 
+                                'BodyweightKg', 'bodyweight_change', 'percent_gain_since_last',
+                                ]
         self.X_train = None
         self.X_test = None
         self.y_train = None
         self.y_test = None
         self.train_df = None
         self.test_df = None
-        self.models = {}
-        self.predictions = {}
-        self.results = {}
+        self.predictions = None
+        self.model = None
 
 
     def prepare_dataset(self):
         logger.info('Encoding and splitting dataset...')
-        self.dataframe['SexEncoded'] = self.dataframe['Sex'].map({'M': 1, 'F': 0})
-        self.feature_columns.append('SexEncoded')
+        scaler = StandardScaler()
+        self.dataframe['Sex'] = self.dataframe['Sex'].astype('category') # change type for xgboost
         self.dataframe[self.feature_columns] = self.dataframe[self.feature_columns].fillna(0)
 
         # Time-base train-test split
@@ -61,63 +57,42 @@ class TrainingPipeline():
         self.y_test = self.test_df['TotalKg']
 
     def train_models(self):
-        logger.info('Training Logistic Regression model')
-        lr = LinearRegression()
-        lr.fit(self.X_train, self.y_train)
-        lr_y_pred = lr.predict(self.X_test)
-        self.models['LR'] = lr
-        self.predictions['LR'] = lr_y_pred
-
-        logger.info('Training Random Forest Regressor model')
-        rdr = RandomForestRegressor()
-        rdr.fit(self.X_train, self.y_train)
-        rdr_y_pred = rdr.predict(self.X_test)
-        self.models['RFR'] = rdr
-        self.predictions['RFR'] = rdr_y_pred
-
         logger.info('Training Gradient Boosting Regressor model')
-        gbr = GradientBoostingRegressor()
+        gbr = XGBRegressor(enable_categorical=True)
         gbr.fit(self.X_train, self.y_train)
         gbr_y_pred = gbr.predict(self.X_test)
-        self.models['GBR'] = gbr
-        self.predictions['GBR'] = gbr_y_pred
-
+        self.predictions = gbr_y_pred
+        self.model = gbr
 
     # Evaluate models
-    def evaluate_models(self, y_true, y_pred, model_name):
+    def evaluate_models(self, y_true, y_pred):
         mae = mean_absolute_error(y_true, y_pred)
         rmse = np.sqrt(mean_squared_error(y_true, y_pred))
         mse = mean_squared_error(y_true, y_pred)
         r2 = r2_score(y_true, y_pred)
 
         logger.info(f"""
-                    ==={model_name}===
                     Mean Absolute Error: {mae:.4f}
                     Mean Squared Error: {mse:.4f}
                     Root Mean Squared Error: {rmse:.4f}
                     R2 Score: {r2:.4f}""")
 
-        return {'MAE': mae, 'MSE': mse, 'RSME': rmse, 'R2': r2}
+        return f'MAE: {mae}, MSE: {mse}, RSME: {rmse}, R2: {r2}'
 
     def save_model(self):
-        for name, model in self.models.items():
-            joblib.dump(model, f'{name}_model.pkl')
+        joblib.dump(self.model, f'XGBR_model.pkl')
 
     def run(self):
         self.prepare_dataset()
         self.train_models()
-        for model_name, y_pred in self.predictions.items():
-            self.results[model_name] = self.evaluate_models(self.y_test, y_pred, model_name)
+        result = self.evaluate_models(self.y_test, self.predictions)
 
-        print('\n==Comparison==')
-        comparison = pd.DataFrame(self.results).T
-        print(comparison.round(2))
-
-        comparison.to_csv('data/4-predictions/model_evaluation.csv')
+        print(result)
+        # result.to_csv('data/4-predictions/model_evaluation.csv')
         self.save_model()
     
 
 if __name__ == '__main__':
-    df = pd.read_csv('data/3-features/engineered_features.csv')
+    df = pd.read_csv('data/3-features/IPF_features_train.csv')
     train = TrainingPipeline(df)
     train.run()
