@@ -6,6 +6,7 @@ from xgboost import XGBRegressor
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import joblib
 import logging
+import yaml
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
                     handlers=[logging.FileHandler('training.log'), logging.StreamHandler()])
@@ -14,12 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class TrainingPipeline():
-    def __init__(self, dataframe):
+    def __init__(self, dataframe, config):
         self.dataframe = dataframe
-        self.feature_columns = ['prev_squat', 'prev_bench', 'prev_deadlift', 
-                                'avg_squat', 'avg_bench', 'avg_deadlift', 
-                                'BodyweightKg', 'bodyweight_change', 'percent_gain_since_last',
-                                ]
+        self.config = config
+        self.feature_columns = config["features"]["columns"]
         self.X_train = None
         self.X_test = None
         self.y_train = None
@@ -58,11 +57,12 @@ class TrainingPipeline():
 
     def train_models(self):
         logger.info('Training Gradient Boosting Regressor model')
-        gbr = XGBRegressor(enable_categorical=True)
-        gbr.fit(self.X_train, self.y_train)
-        gbr_y_pred = gbr.predict(self.X_test)
-        self.predictions = gbr_y_pred
-        self.model = gbr
+        xgb_cfg = self.config['model']['xgboost']
+        model = XGBRegressor(**xgb_cfg)
+        model.fit(self.X_train, self.y_train)
+        model_y_pred = model.predict(self.X_test)
+        self.predictions = model_y_pred
+        self.model = model
 
     # Evaluate models
     def evaluate_models(self, y_true, y_pred):
@@ -80,7 +80,8 @@ class TrainingPipeline():
         return f'MAE: {mae}, MSE: {mse}, RSME: {rmse}, R2: {r2}'
 
     def save_model(self):
-        joblib.dump(self.model, f'XGBR_model.pkl')
+        path = config['data']['model_output_path']
+        joblib.dump(self.model, path)
 
     def run(self):
         self.prepare_dataset()
@@ -93,6 +94,7 @@ class TrainingPipeline():
     
 
 if __name__ == '__main__':
-    df = pd.read_csv('data/3-features/IPF_features_train.csv')
-    train = TrainingPipeline(df)
+    config = yaml.safe_load(open("config/local.yaml"))
+    df = pd.read_csv(config['data']['train_path'])
+    train = TrainingPipeline(df, config)
     train.run()

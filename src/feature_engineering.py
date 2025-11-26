@@ -1,4 +1,5 @@
 import pandas as pd
+import yaml
 
 class FeatureEngineering():
     def __init__(self, dataframe, min_meets=2):
@@ -20,6 +21,12 @@ class FeatureEngineering():
         features['avg_deadlift'] = previous_meet['Best3DeadliftKg'].mean()
         
         features['bodyweight_change'] = current_meet['BodyweightKg'] - previous_meet['BodyweightKg'].iloc[-1]
+
+        if len(previous_meet) >= 2:
+            features['percent_gain_since_last'] = (
+                previous_meet['TotalKg'].iloc[-1] - previous_meet['TotalKg'].iloc[-2]) / previous_meet['TotalKg'].iloc[-2] 
+        else:
+            features['percent_gain_since_last'] = 0
         
         return features
 
@@ -65,11 +72,10 @@ class FeatureEngineering():
         self.save_features(dataset_type)
         return self.df_with_features
 
-    
-
 
 if __name__ == '__main__':
-    df = pd.read_csv('data/2-preprocessed/cleanNotIPF.csv')
+    config = yaml.safe_load(open('config/local.yaml'))
+    df = pd.read_csv(config['data']['feature_engineer'])
     dataset_type = 'Train'
 
     features = FeatureEngineering(df)
