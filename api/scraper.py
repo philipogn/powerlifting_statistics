@@ -5,21 +5,28 @@ class MeetScraper():
     def __init__(self, name: str):
         self.name = name
         self.data_scrape = None
+        self.response = None
+        self.request_status = True
 
     def preprocess_name(self):
         self.name = self.name.replace(" ", "").lower()
 
-    def scrape(self):
-        url = f'https://www.openpowerlifting.org/u/{self.name}'
-        response = requests.get(url)
-        self.data_scrape = BeautifulSoup(response.text, 'html.parser')
-        return self.data_scrape
+    def get_request(self):
+        try:
+            url = f'https://www.openpowerlifting.org/u/{self.name}'
+            self.response = requests.get(url)
+            self.response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            self.request_status = False
+            print(f'HTTP Error: {e}')
+        else:
+            self.data_scrape = BeautifulSoup(self.response.text, 'html.parser')
+            print('Request successful')
 
     def extract(self):
         meet_history_table = self.data_scrape.find_all('table')[1] # two tables, second contains meet history
         keys = meet_history_table.find_all('tr')[0] # column headers
         columns = [col.text.strip() for col in keys.find_all('th')]
-        # print(columns)
 
         data = []
         for row in meet_history_table.find_all('tr')[1:]:
@@ -51,11 +58,11 @@ class MeetScraper():
                 continue
         return attempts_list
 
-    
     def get_lifter_history(self):
         self.preprocess_name()
-        self.scrape()
-        self.extract()
+        self.get_request()
+        if self.request_status == True:
+            self.extract()
 
 if __name__ == '__main__':
     scrape = MeetScraper("phillip ngo")
