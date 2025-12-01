@@ -7,6 +7,7 @@ class MeetScraper():
         self.data_scrape = None
         self.response = None
         self.request_status = True
+        self.meet_data = []
 
     def preprocess_name(self):
         self.name = self.name.replace(" ", "").lower()
@@ -27,8 +28,8 @@ class MeetScraper():
         meet_history_table = self.data_scrape.find_all('table')[1] # two tables, second contains meet history
         keys = meet_history_table.find_all('tr')[0] # column headers
         columns = [col.text.strip() for col in keys.find_all('th')]
+        seen = set()
 
-        data = []
         for row in meet_history_table.find_all('tr')[1:]:
             squats = self.attempts_to_list(row.find_all('td', class_='squat'))
             bench = self.attempts_to_list(row.find_all('td', class_='bench'))
@@ -44,9 +45,14 @@ class MeetScraper():
             di['Bench'] = bench
             di['Deadlift'] = deadlift
 
-            data.append(di)
-        print(data)
-        return 0
+            # skip out duplicate entries, some lifters have dupes.
+            key = (di.get('Date'), di.get('Total'))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            self.meet_data.append(di)
+        return self.meet_data
 
     @staticmethod
     def attempts_to_list(attempts):
@@ -63,6 +69,7 @@ class MeetScraper():
         self.get_request()
         if self.request_status == True:
             self.extract()
+        return self.meet_data
 
 if __name__ == '__main__':
     scrape = MeetScraper("phillip ngo")
