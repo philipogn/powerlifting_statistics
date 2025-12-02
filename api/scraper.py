@@ -2,8 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 
 class MeetScraper():
-    def __init__(self, name: str):
-        self.name = name
+    def __init__(self, username: str):
+        self.name = username
         self.data_scrape = None
         self.response = None
         self.request_status = True
@@ -69,7 +69,7 @@ class MeetScraper():
         self.get_request()
         if self.request_status == True:
             self.extract()
-        return self.meet_data
+        return self.meet_data[::-1]
 
 if __name__ == '__main__':
     scrape = MeetScraper("phillip ngo")
