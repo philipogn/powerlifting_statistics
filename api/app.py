@@ -92,10 +92,11 @@ def root():
         "note": "Requires at least 1 previous competition for predictions",
         "endpoints": {
             "/predict-from-profile": "POST - Predict from OpenPowerlifting username",
+            "/competitions/{username}": "GET - View competition history of lifter",
         }
     }
 
-@app.post('/predict_from_profile', response_model=ProfilePredictionResponse)
+@app.post('/prediction', response_model=ProfilePredictionResponse)
 def predict_from_openpowerlifting(request: UsernameRequest):
     """
     Fetch lifter data from OpenPowerlifting and predict next total.
@@ -183,3 +184,21 @@ def predict_from_openpowerlifting(request: UsernameRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+@app.get('/competitions/{name}')
+def get_competition_history(name: str):
+    try:
+        scrape = MeetScraper(name)
+        meets = scrape.get_lifter_history()
+
+        if not meets:
+            raise HTTPException(status_code=404, detail=f'No competition history for {name}')
+        
+        return {
+            'name': name,
+            'competition_count': len(meets),
+            'competitions': meets
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
