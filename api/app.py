@@ -91,12 +91,14 @@ def root():
         "description": "Predicts next competition total based on training history",
         "note": "Requires at least 1 previous competition for predictions",
         "endpoints": {
-            "/predict-from-profile": "POST - Predict from OpenPowerlifting username",
+            "/predictions": "POST - Predict from OpenPowerlifting username",
             "/competitions/{username}": "GET - View competition history of lifter",
+            "/heath": "Health status of model",
+            "/docs": "Interactive API with SwaggerUI"
         }
     }
 
-@app.post('/prediction', response_model=ProfilePredictionResponse)
+@app.post('/predictions', response_model=ProfilePredictionResponse)
 def predict_from_openpowerlifting(request: UsernameRequest):
     """
     Fetch lifter data from OpenPowerlifting and predict next total.
@@ -202,3 +204,10 @@ def get_competition_history(name: str):
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get('/health')
+def health_check():
+    return {
+        'status': 'healthy' if model is not None else 'unhealthy',
+        'model_loaded': model is not None
+    }
