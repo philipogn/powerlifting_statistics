@@ -189,6 +189,9 @@ def predict_from_openpowerlifting(request: UsernameRequest):
 
 @app.get('/competitions/{name}')
 def get_competition_history(name: str):
+    '''
+    Fetch competition history from OpenPowerlifting
+    '''
     try:
         scrape = MeetScraper(name)
         meets = scrape.get_lifter_history()
