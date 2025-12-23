@@ -15,22 +15,20 @@ class DataCleaningConfig():
 
     ESSENTIAL_COLUMNS = [
         'Name', 'Date', 'Sex', 'Age', 'BodyweightKg', 'Division',
-        'Squat1Kg', 'Squat2Kg', 'Squat3Kg',
-        'Bench1Kg', 'Bench2Kg', 'Bench3Kg', 
-        'Deadlift1Kg', 'Deadlift2Kg', 'Deadlift3Kg', 
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 
         'TotalKg' #, 'Dots'
     ]
 
 
 class DataProcessor(DataCleaningConfig):
-    def __init__(self, raw_df: pd.DataFrame, save_path: str):
+    def __init__(self, raw_df: pd.DataFrame, save_path: str, save_to_csv: bool=False):
         self.df = raw_df
         self.save_path = save_path
         self.prioritise_divisions = [
             'Sub-Juniors', 'Juniors', 'MR-Jr', 'FR-Jr',
             'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'
             ]
+        self.save_to_csv = save_to_csv
 
     def select_target_data(self, df):
         '''
@@ -67,19 +65,22 @@ class DataProcessor(DataCleaningConfig):
         '''
         TotalKg: drop empty fields (no disqualifications)
         Place: must be a number (no disqualifications)
-        Best3s: ensure all 3 lifts are successful (no disqualifications)
+        Best3s: ensure all 3 lifts are successful (no disqualifications) and must be valid attempt (min attempt weight = 20)
         '''
 
         print('Cleaning and preprocessing data...')
         data = df[
             (df['TotalKg'].notna()) &
             (df['Place'].str.isnumeric()) &
-            (df['Best3SquatKg'].notna()) &
-            (df['Best3BenchKg'].notna()) &
-            (df['Best3DeadliftKg'].notna()) 
+            (df['Best3SquatKg'].notna()) & (df['Best3SquatKg'] >= 20) &
+            (df['Best3BenchKg'].notna()) & (df['Best3BenchKg'] >= 20) &
+            (df['Best3DeadliftKg'].notna()) & (df['Best3DeadliftKg'] >= 20)
         ].copy()
 
         data = data[self.ESSENTIAL_COLUMNS].copy()
+
+        # ''' need some function to ensure valid data/lifts or remove outliers? '''
+        # data = data[data['TotalKg'] >= 200]
 
         # Convert to datetime and sort by lifter and date (important for time-based feature engineering like calculating progression)
         data['Date'] = pd.to_datetime(data['Date'])
@@ -95,11 +96,12 @@ class DataProcessor(DataCleaningConfig):
         target_data = self.select_target_data(self.df)
         clean_dupes = self.remove_duplicate_entries(target_data)
         clean_data = self.data_cleaning(clean_dupes)
-        self.convert_to_csv(clean_data)
+        if self.save_to_csv:
+            self.convert_to_csv(clean_data)
 
 if __name__ == '__main__':
     raw_data = pd.read_csv('data/1-raw/openpowerlifting-2025-09-27.csv')
     # save_path = 'data/1-raw/openpowerlifting-2025-09-27-IPF-clean.csv'
-    save_path = 'data/2-preprocessed/openpowerlifting-IPF-clean.csv'
-    preprocess = DataProcessor(raw_data, save_path)
+    save_path = 'data/2-preprocessed/openpowerlifting-IPF-clean_MIN.csv'
+    preprocess = DataProcessor(raw_data, save_path, save_to_csv=True)
     preprocess.run()

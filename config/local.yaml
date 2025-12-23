@@ -1,7 +1,7 @@
 data:
   raw_data_path: "data/1-raw/openpowerlifting-2025-09-27-IPF.csv"
 
-  feature_engineer: "data/2-preprocessed/openpowerlifting-IPF-clean.csv"
+  feature_engineer: "data/2-preprocessed/openpowerlifting-IPF-clean_MIN.csv"
   train_path: "data/3-features/IPF_features_train.csv"
   test_path: ""
   
@@ -19,12 +19,17 @@ preprocessing:
 
 model:
   xgboost:
-    enable_categorical: true
-    max_depth: 6
+    tree_method: "hist"
+    enable_categorical: True
+    max_depth: 8
     learning_rate: 0.1
-    n_estimators: 200
-    subsample: 0.9
+    n_estimators: 100
+    subsample: 1
     colsample_bytree: 0.9
+    reg_lambda: 100
+    reg_alpha: 0.15
+    gamma: 1
+    random_state: 42
 
 features:
   columns:
@@ -34,6 +39,9 @@ features:
     - avg_squat
     - avg_bench
     - avg_deadlift
-    - BodyweightKg
-    - bodyweight_change
+    - days_since_last_meet
+    - total_meets
+    - total_bodyweight_ratio
     - percent_gain_since_last
+    - career_avg_improvement_rate
+    - total_std
