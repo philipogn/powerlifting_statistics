@@ -2,7 +2,7 @@ import pandas as pd
 import yaml
 
 class FeatureEngineering():
-    def __init__(self, dataframe, min_meets=2):
+    def __init__(self, dataframe, min_meets=3):
         self.dataframe = dataframe
         self.min_meets = min_meets
         self.df_with_features = None
@@ -19,14 +19,29 @@ class FeatureEngineering():
         features['avg_squat'] = previous_meet['Best3SquatKg'].mean()
         features['avg_bench'] = previous_meet['Best3BenchKg'].mean()
         features['avg_deadlift'] = previous_meet['Best3DeadliftKg'].mean()
-        
-        features['bodyweight_change'] = current_meet['BodyweightKg'] - previous_meet['BodyweightKg'].iloc[-1]
 
+        features['days_since_last_meet'] = (
+            pd.to_datetime(current_meet['Date']) - pd.to_datetime(previous_meet['Date'].iloc[-1])
+        ).days
+        features['total_meets'] = len(previous_meet)
+        
+        # total kg lifted to bodyweight ratio on previous meet
+        features['total_bodyweight_ratio'] = previous_meet['TotalKg'].iloc[-1] / previous_meet['BodyweightKg'].iloc[-1]
+        
         if len(previous_meet) >= 2:
             features['percent_gain_since_last'] = (
-                previous_meet['TotalKg'].iloc[-1] - previous_meet['TotalKg'].iloc[-2]) / previous_meet['TotalKg'].iloc[-2] 
+                (previous_meet['TotalKg'].iloc[-1] - previous_meet['TotalKg'].iloc[-2]) / 
+                previous_meet['TotalKg'].iloc[-2]
+            )
+            features['career_avg_improvement_rate'] = (
+                (previous_meet['TotalKg'].iloc[-1] - previous_meet['TotalKg'].iloc[0]) / 
+                previous_meet['TotalKg'].iloc[0] / (len(previous_meet) - 1)
+            )
         else:
             features['percent_gain_since_last'] = 0
+            features['career_avg_improvement_rate'] = 0
+        
+        features['total_std'] = previous_meet['TotalKg'].std() if len(previous_meet) > 1 else 0
         
         return features
 
@@ -50,6 +65,8 @@ class FeatureEngineering():
             if len(lifter_data) < self.min_meets: # only can predict lifters with at least two comp history
                 skipped_count += 1
                 continue
+            if len(lifter_data) > self.min_meets:
+                features = features.iloc[1:] # ignore first meet, not useful as it returns null/0 on some features
             features = self.process_single_lifter(lifter_data)
             all_lifting_data.append(features)
 
