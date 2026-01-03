@@ -10,13 +10,13 @@ class DataCleaningConfig():
     DIVISION = ['Open', 'MR-O', 'FR-O', 
                 'Juniors', 'MR-Jr', 'FR-Jr', 'Sub-Juniors',
                 'Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'
-                ]
+    ]
     PARENT_FED = 'IPF'
 
     ESSENTIAL_COLUMNS = [
         'Name', 'Date', 'Sex', 'Age', 'BodyweightKg', 'Division',
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 
-        'TotalKg' #, 'Dots'
+        'TotalKg'
     ]
 
 
@@ -80,7 +80,7 @@ class DataProcessor(DataCleaningConfig):
         data = data[self.ESSENTIAL_COLUMNS].copy()
 
         # ''' need some function to ensure valid data/lifts or remove outliers? '''
-        # data = data[data['TotalKg'] >= 200]
+        data = data[data['TotalKg'] >= 200]
 
         # Convert to datetime and sort by lifter and date (important for time-based feature engineering like calculating progression)
         data['Date'] = pd.to_datetime(data['Date'])
@@ -101,7 +101,6 @@ class DataProcessor(DataCleaningConfig):
 
 if __name__ == '__main__':
     raw_data = pd.read_csv('data/1-raw/openpowerlifting-2025-09-27.csv')
-    # save_path = 'data/1-raw/openpowerlifting-2025-09-27-IPF-clean.csv'
-    save_path = 'data/2-preprocessed/openpowerlifting-IPF-clean_MIN.csv'
+    save_path = 'data/2-preprocessed/IPF_Only_Clean.csv'
     preprocess = DataProcessor(raw_data, save_path, save_to_csv=True)
     preprocess.run()

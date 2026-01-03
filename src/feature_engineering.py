@@ -1,5 +1,6 @@
 import pandas as pd
 import yaml
+import tqdm
 
 class FeatureEngineering():
     def __init__(self, dataframe, min_meets=3):
@@ -26,7 +27,7 @@ class FeatureEngineering():
         features['total_meets'] = len(previous_meet)
         
         # total kg lifted to bodyweight ratio on previous meet
-        features['total_bodyweight_ratio'] = previous_meet['TotalKg'].iloc[-1] / previous_meet['BodyweightKg'].iloc[-1]
+        # features['total_bodyweight_ratio'] = previous_meet['TotalKg'].iloc[-1] / previous_meet['BodyweightKg'].iloc[-1]
         
         if len(previous_meet) >= 2:
             features['percent_gain_since_last'] = (
@@ -61,7 +62,8 @@ class FeatureEngineering():
         skipped_count = 0
 
         print(f"Started feature engineering...")
-        for lifter_name, lifter_data in df.groupby('Name'): # for each lifters competition history
+        pbar = tqdm.tqdm(df.groupby('Name'), desc='Engineering Features...')
+        for lifter_name, lifter_data in pbar: # for each lifters competition history
             if len(lifter_data) < self.min_meets: # only can predict lifters with at least two comp history
                 skipped_count += 1
                 continue
