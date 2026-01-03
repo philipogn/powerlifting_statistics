@@ -48,7 +48,7 @@ class ProfilePredictionResponse(BaseModel):
 def create_features_from_history(history_df: pd.DataFrame):
     # dont need current data to be passed?
     # just intitiate a df/list
-    features = pd.DataFrame()
+    features = {}
     # features = current_data.copy()
     
     features['prev_squat'] = history_df['Best3SquatKg'].iloc[-1]
@@ -119,12 +119,6 @@ def root():
         }
     }
 
-
-def validity_of_lifter():
-    pass
-    # try:
-    #     scrape = MeetScraper()
-
 @app.post('/predictions', response_model=ProfilePredictionResponse)
 def predict_from_openpowerlifting(request: UsernameRequest):
     """
@@ -142,7 +136,8 @@ def predict_from_openpowerlifting(request: UsernameRequest):
         elif len(meets) < 2:
             raise HTTPException(
                 status_code=400,
-                detail=f'{request.username} needs at least 2 competitions for predictions')
+                detail=f'{request.username} needs at least 2 competitions for predictions'
+            )
         
         df = pd.DataFrame(meets)
         
@@ -162,19 +157,13 @@ def predict_from_openpowerlifting(request: UsernameRequest):
                     'Best3BenchKg': bench,
                     'Best3DeadliftKg': deadlift,
                     'TotalKg': float(meet.get('Total', 0)),
-                    'Date': datetime(meet.get('Date', None))
+                    'Date': meet.get('Date', None)
                     }
                 )
             else:
                 continue
         
         history_df = pd.DataFrame(history_processed)
-        
-        # current_data = {
-        #     'BodyweightKg': float(latest_meet.get('Weight', 0)),
-        #     'Age': str(latest_meet.get('Age')),
-        #     'Sex': latest_meet.get('Sex', 'M'),
-        # }
         
         features = create_features_from_history(history_df)
         X = prepare_model_input(features)
@@ -191,21 +180,18 @@ def predict_from_openpowerlifting(request: UsernameRequest):
             'improvement_potential_kg': improvement_kg,
             'lifter_profile': {
                 'name': request.username,
-                'bodyweight_kg': latest_meet['BodyweightKg'],
+                'bodyweight_kg': latest_meet['Weight'],
                 'age': latest_meet['Age'],
-                'sex': latest_meet['Sex'],
                 'lastest_competition_date': latest_meet.get('Date')
             },
             'competition_history_count': len(meets),
-            "features_used": {
+            "features_used": { # add others
                 "prev_squat": features['prev_squat'],
                 "prev_bench": features['prev_bench'],
                 "prev_deadlift": features['prev_deadlift'],
                 "avg_squat": round(features['avg_squat'], 2),
                 "avg_bench": round(features['avg_bench'], 2),
                 "avg_deadlift": round(features['avg_deadlift'], 2),
-                "bodyweight_kg": features['BodyweightKg'],
-                "bodyweight_change": round(features['bodyweight_change'], 2),
                 "percent_gain_since_last": round(features['percent_gain_since_last'], 4)
             }
         }
