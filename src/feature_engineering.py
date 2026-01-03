@@ -67,9 +67,10 @@ class FeatureEngineering():
             if len(lifter_data) < self.min_meets: # only can predict lifters with at least two comp history
                 skipped_count += 1
                 continue
+            features = self.process_single_lifter(lifter_data)
+            ''' double check this part of min_meets '''
             if len(lifter_data) > self.min_meets:
                 features = features.iloc[1:] # ignore first meet, not useful as it returns null/0 on some features
-            features = self.process_single_lifter(lifter_data)
             all_lifting_data.append(features)
 
         self.df_with_features = pd.concat(all_lifting_data)

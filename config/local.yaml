@@ -3,7 +3,7 @@ data:
 
   feature_engineer: "data/2-preprocessed/IPF_Only_Clean.csv"
   train_path: "data/3-features/Train_dataset.csv"
-  test_path: ""
+  test_path: "data/3-features/Test_dataset.csv"
   
   log_path: "data/4-predictions/training.log"
   model_output_path: "models/XGBR_model.pkl"
