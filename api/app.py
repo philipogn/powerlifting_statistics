@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import datetime
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -44,26 +45,44 @@ class ProfilePredictionResponse(BaseModel):
 
 # FEATURE ENGINEERING FUNCTIONS
 
-def create_features_from_history(current_data, history_df: pd.DataFrame):
-    features = current_data.copy()
+def create_features_from_history(history_df: pd.DataFrame):
+    # dont need current data to be passed?
+    # just intitiate a df/list
+    features = pd.DataFrame()
+    # features = current_data.copy()
     
     features['prev_squat'] = history_df['Best3SquatKg'].iloc[-1]
     features['prev_bench'] = history_df['Best3BenchKg'].iloc[-1]
     features['prev_deadlift'] = history_df['Best3DeadliftKg'].iloc[-1]
+    
     features['avg_squat'] = history_df['Best3SquatKg'].mean()
     features['avg_bench'] = history_df['Best3BenchKg'].mean()
     features['avg_deadlift'] = history_df['Best3DeadliftKg'].mean()
-
-    features['bodyweight_change'] = history_df['BodyweightKg'].iloc[-1] - history_df['BodyweightKg'].iloc[-2]
+    
+    # need to change to get current date instead for actual prediction
+    features['days_since_last_meet'] = (
+        pd.to_datetime(datetime.datetime.today()) - pd.to_datetime(history_df['Date'].iloc[-1])
+    ).days
+    
+    features['total_meets'] = len(history_df)
     
     if len(history_df) >= 2:
         features['percent_gain_since_last'] = (
-            history_df['TotalKg'].iloc[-1] - history_df['TotalKg'].iloc[-2]
-        ) / history_df['TotalKg'].iloc[-2]
+            (history_df['TotalKg'].iloc[-1] - history_df['TotalKg'].iloc[-2]) / 
+            history_df['TotalKg'].iloc[-2]
+        )
+        features['career_avg_improvement_rate'] = (
+            (history_df['TotalKg'].iloc[-1] - history_df['TotalKg'].iloc[0]) / 
+            history_df['TotalKg'].iloc[0] / (len(history_df) - 1)
+        )
     else:
         features['percent_gain_since_last'] = 0
+        features['career_avg_improvement_rate'] = 0
+    
+        features['total_std'] = history_df['TotalKg'].std() if len(history_df) > 1 else 0
     
     return features
+
 
 def prepare_model_input(features: dict) -> np.array:
     # create feature array in matching order with training data
@@ -74,9 +93,11 @@ def prepare_model_input(features: dict) -> np.array:
         features.get('avg_squat', 0),
         features.get('avg_bench', 0),
         features.get('avg_deadlift', 0),
-        features.get('BodyweightKg', 0),
-        features.get('bodyweight_change', 0),
-        features.get('percent_gain_since_last', 0)
+        features.get('days_since_last_meet', 0),
+        features.get('total_meets', 0),
+        features.get('percent_gain_since_last', 0),
+        features.get('career_avg_improvement_rate', 0),
+        features.get('total_std', 0)
     ]
     return np.array([feature_values])
 
@@ -98,6 +119,12 @@ def root():
         }
     }
 
+
+def validity_of_lifter():
+    pass
+    # try:
+    #     scrape = MeetScraper()
+
 @app.post('/predictions', response_model=ProfilePredictionResponse)
 def predict_from_openpowerlifting(request: UsernameRequest):
     """
@@ -106,67 +133,67 @@ def predict_from_openpowerlifting(request: UsernameRequest):
     try:
         scrape = MeetScraper(username=request.username)
         meets = scrape.get_lifter_history()
-
+        
         if not meets or len(meets) < 1:
             raise HTTPException(
                 status_code=404,
                 detail=f'No competition history found for {request.username}'
             )
-
-        df = pd.DataFrame(meets)
-
-        latest_meet = df.iloc[-1]
-        history_meet = df.iloc[:]
-
-        if len(history_meet) < 1:
+        elif len(meets) < 2:
             raise HTTPException(
                 status_code=400,
-                detail=f'{request.username} needs at least 2 competitions for prediction'
-            )
+                detail=f'{request.username} needs at least 2 competitions for predictions')
+        
+        df = pd.DataFrame(meets)
+        
+        latest_meet = df.iloc[-1]
+        history_meet = df
+        # print(history_meet)
         
         history_processed = []
         for index, meet in history_meet.iterrows():
             squat = max(meet['Squat']) if meet['Squat'] else 0
             bench = max(meet['Bench']) if meet['Bench'] else 0
             deadlift = max(meet['Deadlift']) if meet['Deadlift'] else 0
-
-            if not squat or not bench or not deadlift:
-                continue
-            else:
+            
+            if squat and bench and deadlift:
                 history_processed.append({
                     'Best3SquatKg': squat,
                     'Best3BenchKg': bench,
                     'Best3DeadliftKg': deadlift,
                     'TotalKg': float(meet.get('Total', 0)),
-                    'BodyweightKg': float(meet.get('Weight', 0))
+                    'Date': datetime(meet.get('Date', None))
                     }
                 )
+            else:
+                continue
+        
         history_df = pd.DataFrame(history_processed)
-
-        current_data = {
-            'BodyweightKg': float(latest_meet.get('Weight', 0)),
-            'Age': str(latest_meet.get('Age')),
-            'Sex': latest_meet.get('Sex', 'M'),
-        }
-
-        features = create_features_from_history(current_data, history_df)
+        
+        # current_data = {
+        #     'BodyweightKg': float(latest_meet.get('Weight', 0)),
+        #     'Age': str(latest_meet.get('Age')),
+        #     'Sex': latest_meet.get('Sex', 'M'),
+        # }
+        
+        features = create_features_from_history(history_df)
         X = prepare_model_input(features)
         print("FEATURES:", features)
         print("MODEL INPUT:", X)
         prediction = model.predict(X)
-
+        
         current_total = float(latest_meet.get('Total', 0))
         improvement_kg = round(float(prediction) - current_total, 2) if current_total else None
-
+        
         return {
             'predicted_total_kg': round(float(prediction), 2),
             'current_total_kg': current_total,
             'improvement_potential_kg': improvement_kg,
             'lifter_profile': {
                 'name': request.username,
-                'bodyweight_kg': current_data['BodyweightKg'],
-                'age': current_data['Age'],
-                'sex': current_data['Sex'],
+                'bodyweight_kg': latest_meet['BodyweightKg'],
+                'age': latest_meet['Age'],
+                'sex': latest_meet['Sex'],
                 'lastest_competition_date': latest_meet.get('Date')
             },
             'competition_history_count': len(meets),
@@ -195,7 +222,6 @@ def get_competition_history(name: str):
     try:
         scrape = MeetScraper(name)
         meets = scrape.get_lifter_history()
-
         if not meets:
             raise HTTPException(status_code=404, detail=f'No competition history for {name}')
         
@@ -204,7 +230,7 @@ def get_competition_history(name: str):
             'competition_count': len(meets),
             'competitions': meets
         }
-
+    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
