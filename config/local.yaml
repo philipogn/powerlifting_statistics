@@ -1,9 +1,8 @@
 data:
-  raw_data_path: "data/1-raw/openpowerlifting-2025-09-27-IPF.csv"
+  raw_data_path: "data/1-raw/openpowerlifting-2025-09-27.csv"
 
-  feature_engineer: "data/2-preprocessed/IPF_Only_Clean.csv"
-  train_path: "data/3-features/Train_dataset.csv"
-  test_path: "data/3-features/Test_dataset.csv"
+  feature_engineer: "data/2-preprocessed/openpowerlifting_preprocessed.csv"
+  train_path: "data/3-features/openpowerlifting_features.csv"
   
   log_path: "data/4-predictions/training.log"
   model_output_path: "models/XGBR_model.pkl"
@@ -33,6 +32,9 @@ model:
 
 features:
   columns:
+    - Age
+    - BodyweightKg
+    - Sex
     - prev_squat
     - prev_bench
     - prev_deadlift
@@ -44,3 +46,4 @@ features:
     - percent_gain_since_last
     - career_avg_improvement_rate
     - total_std
+    - anomaly
