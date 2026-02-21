@@ -1,23 +1,20 @@
 import pandas as pd
 import yaml
 from tqdm import tqdm
-from sklearn.base import BaseEstimator, TransformerMixin
 
 class FeatureEngineering():
-    def __init__(self, dataframe, min_meets=3):
-        self.dataframe = dataframe
+    def __init__(self, save_path: str=None, save_to_csv: bool=False, min_meets=3):
+        self.save_path = save_path
+        self.save_to_csv = save_to_csv
         self.min_meets = min_meets
-        self.df_with_features = None
-        
-    def _create_features(self, current_meet, previous_meet):
-        features = current_meet.copy()
 
-        # 1. previous performance
+    def _create_features(self, current_meet, previous_meet):
+        features = {}
+
         features['prev_squat'] = previous_meet['Best3SquatKg'].iloc[-1]
         features['prev_bench'] = previous_meet['Best3BenchKg'].iloc[-1]
         features['prev_deadlift'] = previous_meet['Best3DeadliftKg'].iloc[-1]
 
-        # 2. averaged of lifts
         features['avg_squat'] = previous_meet['Best3SquatKg'].mean()
         features['avg_bench'] = previous_meet['Best3BenchKg'].mean()
         features['avg_deadlift'] = previous_meet['Best3DeadliftKg'].mean()
@@ -28,17 +25,12 @@ class FeatureEngineering():
         features['total_meets'] = len(previous_meet)
         
         # total kg lifted to bodyweight ratio on previous meet
-        # features['total_bodyweight_ratio'] = previous_meet['TotalKg'].iloc[-1] / previous_meet['BodyweightKg'].iloc[-1]
+        features['total_bodyweight_ratio'] = previous_meet['TotalKg'].iloc[-1] / previous_meet['BodyweightKg'].iloc[-1]
         
         if len(previous_meet) >= 2:
-            features['percent_gain_since_last'] = (
-                (previous_meet['TotalKg'].iloc[-1] - previous_meet['TotalKg'].iloc[-2]) / 
-                previous_meet['TotalKg'].iloc[-2]
-            )
-            features['career_avg_improvement_rate'] = (
-                (previous_meet['TotalKg'].iloc[-1] - previous_meet['TotalKg'].iloc[0]) / 
-                previous_meet['TotalKg'].iloc[0] / (len(previous_meet) - 1)
-            )
+            first, last, second_last = previous_meet['TotalKg'].iloc[0], previous_meet['TotalKg'].iloc[-1], previous_meet['TotalKg'].iloc[-2]
+            features['percent_gain_since_last'] = ((last - second_last) / second_last)
+            features['career_avg_improvement_rate'] = ((last - first) / first / (len(previous_meet) - 1))
         else:
             features['percent_gain_since_last'] = 0
             features['career_avg_improvement_rate'] = 0
@@ -47,54 +39,42 @@ class FeatureEngineering():
         
         return features
 
-    def _process_single_lifter(self, lifter_data):
+    def _process_lifter(self, lifter_data):
         lifting_data = []
-
         for i in range(1, len(lifter_data)):
             current = lifter_data.iloc[i]
             previous = lifter_data.iloc[:i]
-            features = self._create_features(current, previous)
-            lifting_data.append(features)
-        return pd.DataFrame(lifting_data[1:]) if len(lifting_data) > 1 else pd.DataFrame(lifting_data)
+            meet = current.to_dict()
+            meet.update(self._create_features(current, previous))
+            lifting_data.append(meet)
+        # drop first meet, not useful as it returns null/0 on some features
+        return lifting_data[1:] if len(lifting_data) > 1 else lifting_data
 
-    def _engineer_features(self):
-        df = self.dataframe.sort_values(['Name', 'Date']).reset_index(drop=True) # sort by name, date
+    def _save_features(self, df):
+        df.to_csv(self.save_path, index=False)
+        return df
+
+    def engineer_features(self, df):
+        df = df.sort_values(['Name', 'Date']).reset_index(drop=True) # sort by name, date
         all_lifting_data = []
-
-        print(f"Started feature engineering...")
         for name, lifter_data in tqdm(df.groupby('Name'), desc='Engineering Features...'):
             if len(lifter_data) < self.min_meets: # only can predict lifters with at least two comp history
                 continue
-            features = self._process_single_lifter(lifter_data)
-            all_lifting_data.append(features)
-
-        self.df_with_features = pd.concat(all_lifting_data)
-
-        # print(f"\nFeature engineering complete!")
-        # print(f"Training examples created: {len(self.df_with_features)}")
-        # print(f"{self.df_with_features['Name'].nunique()} lifters with {self.min_meets}+ meets")
-        return self.df_with_features
-    
-    def _save_features(self, dataset_type):
-        if self.df_with_features is None:
-            raise ValueError('\nNo features to save, run _engineer_features() first')
-        output_path = f'data/3-features/{dataset_type}_dataset.csv'
-        self.df_with_features.to_csv(output_path, index=False)
-    
-    def run(self, dataset_type):
-        self._engineer_features()
-        self._save_features(dataset_type)
-        return self.df_with_features
-    
-    def transform(self):
-        pass
+            all_lifting_data.extend(self._process_lifter(lifter_data))
+        
+        if self.save_to_csv:
+            self._save_features(pd.DataFrame(all_lifting_data))
+        
+        return pd.DataFrame(all_lifting_data)
 
 
 if __name__ == '__main__':
-    config = yaml.safe_load(open('config/local.yaml'))
-    df = pd.read_csv(config['data']['feature_engineer'])
-    dataset_type = 'Train'
+    # config = yaml.safe_load(open('config/local.yaml'))
+    # recheck df csv
+    # df = pd.read_csv(config['data']['feature_engineer'])
+    df = pd.read_csv('data/2-preprocessed/openpowerlifting_preprocessed.csv')
+    save_path = 'data/3-features/openpowerlifting_features.csv'
 
-    features = FeatureEngineering(df)
-    features.run(dataset_type=dataset_type)
+    features = FeatureEngineering(save_path=save_path, save_to_csv=True)
+    features.engineer_features(df)
 

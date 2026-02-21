@@ -1,14 +1,13 @@
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin
 
-class DataProcessor(BaseEstimator, TransformerMixin):
+class DataProcessor():
     ESSENTIAL_COLUMNS = [
         'Name', 'Date', 'Sex', 'Age', 'BodyweightKg',
         'Best3SquatKg', 'Best3BenchKg', 'Best3DeadliftKg', 
         'TotalKg', 'ParentFederation'
     ]
 
-    def __init__(self, save_path: str, save_to_csv: bool=False, event: str='SBD', equipment: str='Raw'):
+    def __init__(self, save_path: str=None, save_to_csv: bool=False, event: str='SBD', equipment: str='Raw'):
         self.save_path = save_path
         self.save_to_csv = save_to_csv
         self.event = event
