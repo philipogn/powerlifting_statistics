@@ -45,6 +45,7 @@ class TrainingPipeline():
         print(f'Mean Absolute Error: {mean_absolute_error(y_test, prediction):.4f}')
         print(f'Root Mean Squared Error: {root_mean_squared_error(y_test, prediction):.4f}')
         print(f'R2 Score: {r2_score(y_test, prediction):.4f}')
+        # SAVE MODEL AND USE PIPELINE METHODS ON API
 
 if __name__ == '__main__':
     # raw data file
