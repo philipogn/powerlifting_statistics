@@ -34,7 +34,6 @@ features:
   columns:
     - Age
     - BodyweightKg
-    - Sex
     - prev_squat
     - prev_bench
     - prev_deadlift
