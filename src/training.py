@@ -54,6 +54,6 @@ class TrainingPipeline():
 
 if __name__ == '__main__':
     # raw data file
-    df = pd.read_csv('data/3-features/opl_features_not_IPF.csv')
+    df = pd.read_csv('data/3-features/opl_features_IPF.csv')
     train = TrainingPipeline(save_model=True)
     train.train_from_data(df)

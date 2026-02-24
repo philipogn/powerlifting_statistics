@@ -2,8 +2,6 @@ import yaml
 import pandas as pd
 import sys
 from pathlib import Path
-import joblib
-from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
@@ -15,31 +13,39 @@ config = yaml.safe_load(open('config/prod.yaml'))
 
 def preprocess_step(raw_data_path):
     try:
-        raw_data = pd.read_csv(raw_data_path)
+        # raw_data = pd.read_csv(
+        #     raw_data_path, 
+        #     dtype={'Tested': 'string', 'State': 'string', 'ParentFederation': 'string', 'MeetState': 'string'})
         preprocess = DataProcessor(
-            save_path='data/2-preprocessed/openpowerlifting_preprocessed.csv',
+            save_path='data/2-preprocessed/opl_preprocessed_IPF.csv',
             save_to_csv=True
         )
-        preprocess.transform(raw_data)
+        preprocess.transform(raw_data_path)
     except FileNotFoundError as e:
         print(f'Error loading raw dataset: {e}')
 
 def training_step():
     try:
-        df = pd.read_csv('data/2-preprocessed/openpowerlifting_preprocessed.csv')
+        df = pd.read_csv('data/2-preprocessed/opl_preprocessed_IPF.csv')
         features = FeatureEngineering(
-            save_path='data/3-features/openpowerlifting_features.csv', 
+            save_path='data/3-features/opl_features_IPF.csv', 
             save_to_csv=True
         )
         features.engineer_features(df)
 
-        df = pd.read_csv('data/3-features/openpowerlifting_features.csv')
+        df = pd.read_csv('data/3-features/opl_features_IPF.csv')
         train = TrainingPipeline()
         train.train_from_data(df)
+        train.save_model()
     except FileNotFoundError as e:
         print(f'Preprocessed dataset not found: {e}')
 
 # save model
+
+''' 
+MODIFY SO DATA CSV CAN BE DIRECTLY INJCECTED FROM TERMINAL?
+e.g., python src/entrypoint --input {csv_file}.csv
+'''
 
 def run_entire_pipeline(raw_data_path):
     preprocess_step(raw_data_path)

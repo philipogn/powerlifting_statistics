@@ -2,8 +2,8 @@ data:
   raw_data_path: "data/1-raw/openpowerlifting-2025-09-27.csv"
 
   feature_engineer: "data/2-preprocessed/opl_preprocessed_not_IPF.csv"
-  train_path: "data/3-features/opl_features_not_IPF.csv"
-  test_path: "data/3-features/opl_features_IPF"
+  train_path: "data/3-features/opl_features_IPF"
+  test_path: "data/3-features/opl_features_not_IPF.csv"
 
   model_output_path: "models/XGBR_model.pkl"
 
