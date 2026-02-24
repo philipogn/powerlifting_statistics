@@ -1,20 +1,18 @@
 data:
   raw_data_path: "data/1-raw/openpowerlifting-2025-09-27.csv"
 
-  feature_engineer: "data/2-preprocessed/openpowerlifting_preprocessed.csv"
-  train_path: "data/3-features/openpowerlifting_features.csv"
-  
-  log_path: "data/4-predictions/training.log"
+  feature_engineer: "data/2-preprocessed/opl_preprocessed_not_IPF.csv"
+  train_path: "data/3-features/opl_features_not_IPF.csv"
+  test_path: "data/3-features/opl_features_IPF"
+
   model_output_path: "models/XGBR_model.pkl"
 
 train_test_split:
   quantile: 0.8
-  validation_split: 0.15
 
 preprocessing:
-  handle_missing: "drop"
-  categorical_encoding: "one_hot"
-  numerical_scaling: "standard"
+  handle_missing: "impute mean"
+  categorical_encoding: "ordinal"
 
 model:
   xgboost:
@@ -45,4 +43,3 @@ features:
     - percent_gain_since_last
     - career_avg_improvement_rate
     - total_std
-    - anomaly

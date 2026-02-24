@@ -9,12 +9,12 @@ import joblib
 import yaml
 
 class TrainingPipeline():
-    def __init__(self):
-        pass
+    def __init__(self, config_path: str='config/local.yaml',save_model: bool=False):
+        self.config = yaml.safe_load(open(config_path))
+        self.save_model = save_model
 
-    def build_pipeline(self, config):
-        model_config = config['model']['xgboost']
-        feature_cols = config['features']['columns']
+    def build_pipeline(self, feature_cols):
+        model_config = self.config['model']['xgboost']
 
         preprocessor = ColumnTransformer(
             transformers=[
@@ -28,7 +28,7 @@ class TrainingPipeline():
         ])
 
     def train_from_data(self, df):
-        config = yaml.safe_load(open('config/local.yaml'))
+        feature_cols = self.config['features']['columns']
 
         df['Date'] = pd.to_datetime(df['Date'])
         df = df.sort_values(['Name', 'Date'])
@@ -36,19 +36,24 @@ class TrainingPipeline():
         split_date = df['Date'].quantile(0.8)
         
         train_df, test_df = df[df["Date"] < split_date], df[df["Date"] >= split_date]
+        X_train, X_test = train_df[feature_cols + ['Sex']], test_df[feature_cols + ['Sex']]
         y_train, y_test = train_df["TotalKg"], test_df["TotalKg"]
 
-        pipeline = self.build_pipeline(config)
-        pipeline.fit(train_df, y_train)
-        prediction = pipeline.predict(test_df)
+        pipeline = self.build_pipeline(feature_cols)
+        pipeline.fit(X_train, y_train)
+        prediction = pipeline.predict(X_test)
+
+        if self.save_model:
+            joblib.dump(pipeline, 'models/XGBR_model_v1.pkl')
 
         print(f'Mean Absolute Error: {mean_absolute_error(y_test, prediction):.4f}')
         print(f'Root Mean Squared Error: {root_mean_squared_error(y_test, prediction):.4f}')
         print(f'R2 Score: {r2_score(y_test, prediction):.4f}')
+        return pipeline
         # SAVE MODEL AND USE PIPELINE METHODS ON API
 
 if __name__ == '__main__':
     # raw data file
-    df = pd.read_csv('data/3-features/openpowerlifting_features.csv')
-    train = TrainingPipeline()
+    df = pd.read_csv('data/3-features/opl_features_not_IPF.csv')
+    train = TrainingPipeline(save_model=True)
     train.train_from_data(df)
