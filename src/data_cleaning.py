@@ -16,8 +16,8 @@ class DataProcessor():
     def _select_target_data(self, df):
         '''
         SBD Event, Raw Equipment only
-        Division: all common/important divisions, filtering out superfluous divs
         '''
+        df['ParentFederation'] = df['ParentFederation'].fillna('Unknown')
         return df[
             (df['Sex'].isin(['M', 'F'])) & 
             (df['Event'] == self.event) & 
@@ -47,28 +47,32 @@ class DataProcessor():
 
         return data
 
-    def _flag_anomaly(self, df):
+    def _drop_anomaly(self, df):
         '''
-        Flagging outliers/anomaly lifts, weirdly proportion ratios of SBD
-        Could be due to injury prior to competition, lifter attempting max weight possible to not get DQ'ed
+        Dropping outliers/anomaly lifts, weirdly proportion ratios of SBD
+        Could be due to injury or data entry error, can't really infer so just dropping, dataset already seems meaningful
         '''
         squat_anomaly = df['Best3SquatKg'] < (0.5 * df[['Best3BenchKg','Best3DeadliftKg']].mean(axis=1))
         bench_anomaly = df['Best3BenchKg'] < (0.3 * df[['Best3SquatKg','Best3DeadliftKg']].mean(axis=1))
         deadlift_anomaly = df['Best3DeadliftKg'] < (0.8 * df[['Best3SquatKg','Best3BenchKg']].mean(axis=1))
-        df['anomaly'] = squat_anomaly | bench_anomaly | deadlift_anomaly
-        return df
+        # df['anomaly'] = squat_anomaly | bench_anomaly | deadlift_anomaly
+        return df[~(squat_anomaly | bench_anomaly | deadlift_anomaly)]
 
     def _convert_to_csv(self, data):
         data.to_csv(self.save_path, index=False)
         print(f'Successfully cleaned data and saved to "{self.save_path}"')
         return data
 
-    def transform(self, df):
+    def transform(self, raw_data_path):
+        df = pd.read_csv(
+            raw_data_path, 
+            dtype={'Tested': 'string', 'State': 'string', 'ParentFederation': 'string', 'MeetState': 'string'}
+        )
         df = df.copy()
         df = self._select_target_data(df)
         df = self._remove_duplicate_entries(df)
         df = self._remove_invalid(df)
-        df = self._flag_anomaly(df)
+        df = self._drop_anomaly(df)
 
         df['Date'] = pd.to_datetime(df['Date'])
         df = df.sort_values(['Name', 'Date']).reset_index(drop=True)
@@ -78,7 +82,8 @@ class DataProcessor():
         return df
 
 if __name__ == '__main__':
-    raw_data = pd.read_csv('data/1-raw/openpowerlifting-2025-09-27.csv')
-    save_path = 'data/2-preprocessed/openpowerlifting_preprocessed.csv'
+    raw_data_path = 'data/1-raw/openpowerlifting-2025-09-27.csv'
+    save_path = 'data/2-preprocessed/opl_preprocessed_IPF.csv'
+
     preprocess = DataProcessor(save_path, save_to_csv=True)
-    preprocess.transform(raw_data)
+    preprocess.transform(raw_data_path)

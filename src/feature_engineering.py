@@ -2,6 +2,12 @@ import pandas as pd
 import yaml
 from tqdm import tqdm
 
+OUTPUT_COLS = ['Name', 'Date', 'Sex', 'Age', 'BodyweightKg', 'TotalKg', 
+               'prev_squat', 'prev_bench', 'prev_deadlift', 
+               'avg_squat', 'avg_bench', 'avg_deadlift', 
+               'days_since_last_meet', 'total_meets', 
+               'percent_gain_since_last', 'career_avg_improvement_rate', 'total_std']
+
 class FeatureEngineering():
     def __init__(self, save_path: str=None, save_to_csv: bool=False, min_meets=3):
         self.save_path = save_path
@@ -62,18 +68,19 @@ class FeatureEngineering():
                 continue
             all_lifting_data.extend(self._process_lifter(lifter_data))
         
+        result = pd.DataFrame(all_lifting_data)[OUTPUT_COLS].round(5)
         if self.save_to_csv:
-            self._save_features(pd.DataFrame(all_lifting_data))
+            self._save_features(result)
         
-        return pd.DataFrame(all_lifting_data)
+        return result
 
 
 if __name__ == '__main__':
     # config = yaml.safe_load(open('config/local.yaml'))
     # recheck df csv
     # df = pd.read_csv(config['data']['feature_engineer'])
-    df = pd.read_csv('data/2-preprocessed/openpowerlifting_preprocessed.csv')
-    save_path = 'data/3-features/openpowerlifting_features.csv'
+    df = pd.read_csv('data/2-preprocessed/opl_preprocessed_IPF.csv')
+    save_path = 'data/3-features/opl_features_IPF.csv'
 
     features = FeatureEngineering(save_path=save_path, save_to_csv=True)
     features.engineer_features(df)
