@@ -1,5 +1,11 @@
 import requests
+from pydantic import BaseModel
+from typing import List
 from bs4 import BeautifulSoup
+
+class LifterDataClass(BaseModel):
+    lifter: dict
+    meet_details: List[dict]
 
 class MeetScraper():
     def __init__(self, username: str):
@@ -22,9 +28,16 @@ class MeetScraper():
             print(f'HTTP Error: {e}')
         else:
             self.data_scrape = BeautifulSoup(self.response.text, 'html.parser')
-            print('Request successful')
 
-    def extract(self):
+    def get_name_sex(self):
+        header = self.data_scrape.find('h1')
+        name = header.contents[0].get_text()
+        sex = header.text.split('(')[-1].replace(')', '')
+        # sex = header.contents[-1].strip(' ()')
+        print({'Name': name, 'Sex': sex})
+        return {'Name': name, 'Sex': sex}
+
+    def extract_history(self):
         meet_history_table = self.data_scrape.find_all('table')[1] # two tables, second contains meet history
         keys = meet_history_table.find_all('tr')[0] # column headers
         columns = [col.text.strip() for col in keys.find_all('th')]
@@ -45,8 +58,13 @@ class MeetScraper():
             di['Bench'] = bench
             di['Deadlift'] = deadlift
 
+            if '~' in di['Age']:
+                di['Age'] = float(di['Age'].replace('~', '.5'))
+            else:
+                di['Age'] = float(di['Age'])
+
             # skip out duplicate entries, some lifters have dupes.
-            key = (di.get('Date'), di.get('Total'))
+            key = (di.get('Date'), di.get('Competition'))
             if key in seen:
                 continue
             seen.add(key)
@@ -64,12 +82,16 @@ class MeetScraper():
                 continue
         return attempts_list
 
-    def get_lifter_history(self):
+    def get_lifter_history(self) -> LifterDataClass:
         self.preprocess_name()
         self.get_request()
-        if self.request_status == True:
-            self.extract()
-        return self.meet_data[::-1]
+        lifter = self.get_name_sex()
+        if self.request_status:
+            self.extract_history()
+        meet_data = self.meet_data[::-1]
+        # return self.meet_data[::-1]
+        print(LifterDataClass(lifter=lifter, meet_details=meet_data))
+        return LifterDataClass(lifter=lifter, meet_details=meet_data)
 
 if __name__ == '__main__':
     scrape = MeetScraper("phillip ngo")
