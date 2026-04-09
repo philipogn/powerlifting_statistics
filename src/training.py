@@ -9,9 +9,9 @@ import joblib
 import yaml
 
 class TrainingPipeline():
-    def __init__(self, config_path: str='config/local.yaml',save_model: bool=False):
+    def __init__(self, config_path: str='config/local.yaml'):
         self.config = yaml.safe_load(open(config_path))
-        self.save_model = save_model
+        self.pipeline = None
 
     def build_pipeline(self, feature_cols):
         '''
@@ -46,14 +46,16 @@ class TrainingPipeline():
         pipeline.fit(X_train, y_train)
         prediction = pipeline.predict(X_test)
 
-        if self.save_model:
-            joblib.dump(pipeline, 'models/XGBR_model_v1.pkl')
+        self.pipeline = pipeline
 
         print(f'Mean Absolute Error: {mean_absolute_error(y_test, prediction):.4f}')
         print(f'Root Mean Squared Error: {root_mean_squared_error(y_test, prediction):.4f}')
         print(f'R2 Score: {r2_score(y_test, prediction):.4f}')
         return pipeline
         # SAVE MODEL AND USE PIPELINE METHODS ON API
+
+    def save_model(self, save_path='models/XGBR_model_v1.pkl'):
+        joblib.dump(self.pipeline, save_path)
 
 if __name__ == '__main__':
     df = pd.read_csv('data/3-features/opl_features_IPF.csv')

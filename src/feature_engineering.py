@@ -9,10 +9,10 @@ OUTPUT_COLS = ['Name', 'Date', 'Sex', 'Age', 'BodyweightKg', 'TotalKg',
                'percent_gain_since_last', 'career_avg_improvement_rate', 'total_std']
 
 class FeatureEngineering():
-    def __init__(self, save_path: str=None, save_to_csv: bool=False, min_meets=3):
+    def __init__(self, save_path: str=None, save_to_csv: bool=False):
         self.save_path = save_path
         self.save_to_csv = save_to_csv
-        self.min_meets = min_meets
+        self.min_meets = 3
 
     def _create_features(self, current_meet, previous_meet):
         '''
