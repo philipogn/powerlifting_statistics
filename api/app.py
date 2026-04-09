@@ -147,7 +147,6 @@ def predict_from_openpowerlifting(request: UsernameRequest):
         data = scrape.get_lifter_history()
         meets, lifter = data.meet_details, data.lifter
 
-        
         if not meets or len(meets) < 1:
             raise HTTPException(
                 status_code=404,
@@ -162,10 +161,7 @@ def predict_from_openpowerlifting(request: UsernameRequest):
         df = pd.DataFrame(meets)
         
         latest_meet = df.iloc[-1]
-        print(df)
-
         history_df = get_max_lifts(df)
-        
         features = create_features_from_history(history_df)
 
         current_age = request.age
@@ -173,9 +169,7 @@ def predict_from_openpowerlifting(request: UsernameRequest):
         sex = lifter['Sex']
         X = prepare_model_input(features, current_age, current_bodyweight, sex)
 
-        print("FEATURES:", features)
-        print("MODEL INPUT:", pd.DataFrame(X))
-        prediction = model.predict(pd.DataFrame(X))[0]
+        prediction = model.predict(X)
         
         current_total = float(latest_meet.get('Total', 0))
         improvement_kg = round(float(prediction) - current_total, 2) if current_total else None
@@ -191,14 +185,18 @@ def predict_from_openpowerlifting(request: UsernameRequest):
                 'lastest_competition_date': latest_meet.get('Date')
             },
             'competition_history_count': len(meets),
-            "features_used": { # add others
-                "prev_squat": features['prev_squat'],
-                "prev_bench": features['prev_bench'],
-                "prev_deadlift": features['prev_deadlift'],
-                "avg_squat": round(features['avg_squat'], 2),
-                "avg_bench": round(features['avg_bench'], 2),
-                "avg_deadlift": round(features['avg_deadlift'], 2),
-                "percent_gain_since_last": round(features['percent_gain_since_last'], 4)
+            'features_used': { # add others
+                'prev_squat': features['prev_squat'],
+                'prev_bench': features['prev_bench'],
+                'prev_deadlift': features['prev_deadlift'],
+                'avg_squat': round(features['avg_squat'], 2),
+                'avg_bench': round(features['avg_bench'], 2),
+                'avg_deadlift': round(features['avg_deadlift'], 2),
+                'days_since_last_meet': round(features['days_since_last_meet']),
+                'total_meets': round(features['total_meets']),
+                'percent_gain_since_last': round(features['percent_gain_since_last'], 4),
+                'career_avg_improvement_rate': round(features['career_avg_improvement_rate']),
+                'total_std': round(features['total_std'])
             }
         }
     except ValueError as e:

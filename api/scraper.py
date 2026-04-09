@@ -33,8 +33,6 @@ class MeetScraper():
         header = self.data_scrape.find('h1')
         name = header.contents[0].get_text()
         sex = header.text.split('(')[-1].replace(')', '')
-        # sex = header.contents[-1].strip(' ()')
-        print({'Name': name, 'Sex': sex})
         return {'Name': name, 'Sex': sex}
 
     def extract_history(self):
@@ -89,8 +87,7 @@ class MeetScraper():
         if self.request_status:
             self.extract_history()
         meet_data = self.meet_data[::-1]
-        # return self.meet_data[::-1]
-        print(LifterDataClass(lifter=lifter, meet_details=meet_data))
+
         return LifterDataClass(lifter=lifter, meet_details=meet_data)
 
 if __name__ == '__main__':
