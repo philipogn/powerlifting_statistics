@@ -20,27 +20,21 @@ def _validate_input_csv(raw_data_path):
 def _timestamped_path(path):
     stem, ext = os.path.splitext(path)
     if not ext:
-        ext = '.csv'
+        ext = '.pkl'
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     return f'{stem}_{timestamp}{ext}'
 
 
-def preprocess_step(raw_data_path, preprocessed_output_path=None):
+def preprocess_step(raw_data_path):
     print(f'[1/4] Preprocessing raw data from: {raw_data_path}')
-    preprocess = DataProcessor(
-        save_path=preprocessed_output_path,
-        save_to_csv=True
-    )
+    preprocess = DataProcessor()
     data = preprocess.transform(raw_data_path)
     print(f'[1/4] Preprocessing complete. Rows: {len(data):,}')
     return data
 
-def training_step(data, features_output_path, model_output_path):
+def training_step(data, model_output_path):
     print(f'[2/4] Engineering features')
-    features = FeatureEngineering(
-        save_path=features_output_path,
-        save_to_csv=True
-    )
+    features = FeatureEngineering()
     engineered_features = features.engineer_features(data)
     print(f'[2/4] Feature engineering complete. Rows: {len(engineered_features):,}')
 
@@ -51,10 +45,10 @@ def training_step(data, features_output_path, model_output_path):
     joblib.dump(train.pipeline, model_output_path)
     print(f'[4/4] Model saved successfully')
 
-def run_entire_pipeline(raw_data_path, preprocessed_output_path, features_output_path, model_output_path):
+def run_entire_pipeline(raw_data_path, model_output_path):
     _validate_input_csv(raw_data_path)
-    data = preprocess_step(raw_data_path, preprocessed_output_path)
-    training_step(data, features_output_path, model_output_path)
+    data = preprocess_step(raw_data_path)
+    training_step(data, model_output_path)
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -66,16 +60,6 @@ def parse_args():
         help='Path to raw input CSV file.'
     )
     parser.add_argument(
-        '--preprocessed-output',
-        default='data/2-preprocessed/opl_preprocessed_IPF.csv',
-        help='Optional output path for preprocessed CSV.'
-    )
-    parser.add_argument(
-        '--features-output',
-        default='data/3-features/opl_features_IPF.csv',
-        help='Optional output path for engineered features CSV.'
-    )
-    parser.add_argument(
         '--model-output',
         default='models/XGBR_model.pkl',
         help='Output path for trained model file.'
@@ -83,22 +67,18 @@ def parse_args():
     parser.add_argument(
         '--version-outputs',
         action='store_true',
-        help='Append a timestamp to output filenames to avoid overwriting previous runs.'
+        help='Append a timestamp to the model filename to avoid overwriting previous runs.'
     )
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = parse_args()
-    preprocessed_output = _timestamped_path(args.preprocessed_output) if args.version_outputs else args.preprocessed_output
-    features_output = _timestamped_path(args.features_output) if args.version_outputs else args.features_output
     model_output = _timestamped_path(args.model_output) if args.version_outputs else args.model_output
-    
+
     try:
         run_entire_pipeline(
-            raw_data_path = args.input,
-            preprocessed_output_path = preprocessed_output,
-            features_output_path = features_output,
-            model_output_path = model_output
+            raw_data_path=args.input,
+            model_output_path=model_output,
         )
     except Exception as e:
-        raise(f'Pipeline failed: {e}')
+        raise RuntimeError(f'Pipeline failed: {e}') from e
