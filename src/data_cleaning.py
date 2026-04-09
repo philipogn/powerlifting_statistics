@@ -15,13 +15,14 @@ class DataProcessor():
 
     def _select_target_data(self, df):
         '''
-        SBD Event, Raw Equipment only
+        Only events in the IPF, SBD Event, Raw Equipment only
         '''
         df['ParentFederation'] = df['ParentFederation'].fillna('Unknown')
         return df[
             (df['Sex'].isin(['M', 'F'])) & 
             (df['Event'] == self.event) & 
-            (df['Equipment'] == self.equipment)
+            (df['Equipment'] == self.equipment) &
+            (df['ParentFederation'] == 'IPF')
         ]
 
     def _remove_duplicate_entries(self, df):

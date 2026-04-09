@@ -14,6 +14,9 @@ class TrainingPipeline():
         self.save_model = save_model
 
     def build_pipeline(self, feature_cols):
+        '''
+        Pipeline for imputation and encoding
+        '''
         model_config = self.config['model']['xgboost']
 
         preprocessor = ColumnTransformer(
@@ -53,7 +56,6 @@ class TrainingPipeline():
         # SAVE MODEL AND USE PIPELINE METHODS ON API
 
 if __name__ == '__main__':
-    # raw data file
     df = pd.read_csv('data/3-features/opl_features_IPF.csv')
-    train = TrainingPipeline(save_model=True)
+    train = TrainingPipeline(save_model=False)
     train.train_from_data(df)
