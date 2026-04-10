@@ -13,7 +13,7 @@ DEFAULT_MODEL_PATH = 'models/XGBR_model_v1.pkl'
 def load_model(model_path):
     return joblib.load(model_path)
 
-def configure_page():
+def main():
     # INFO/HEADERS
     st.set_page_config(page_title="Powerlifting Total Predictor", layout="centered")
     st.title("Powerlifting Predictor")
@@ -95,9 +95,6 @@ def configure_page():
     st.divider()
     st.header("Competition History")
     st.dataframe(meets)
-
-def main():
-    configure_page()
 
 if __name__ == "__main__":
     main()
