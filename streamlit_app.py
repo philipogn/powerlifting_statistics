@@ -1,8 +1,6 @@
 import streamlit as st
 import joblib
 import pandas as pd
-import sys
-from pathlib import Path
 
 from src.inference_service import predict_from_meets
 from api.scraper import MeetScraper
@@ -16,7 +14,7 @@ def load_model(model_path):
 def main():
     # INFO/HEADERS
     st.set_page_config(page_title="Powerlifting Total Predictor", layout="centered")
-    st.title("Powerlifting Predictor")
+    st.title("Powerlifting Total Predictor")
     st.caption("Predict the next meet TotalKg for an OpenPowerlifting lifter.")
 
     # MAIN PAGE
@@ -27,7 +25,7 @@ def main():
     with col2:
         bodyweight = st.number_input("Current bodyweight", min_value=30.0, max_value=350.0, value=None)
     
-    button_action = st.button("Submit")
+    button_action = st.button("Predict next total", type="primary")
     if not button_action:
         return
 
@@ -77,9 +75,11 @@ def main():
         return
     
     improvement_kg = round(prediction - current_total, 2) if current_total else None
+    percent_gain = round((improvement_kg / current_total) * 100, 2) if improvement_kg else None
 
+    st.success("Prediction complete.")
     met1, met2, met3 = st.columns(3)
-    met1.metric("Predicted Total", f"{prediction:.2f} Kg", )
+    met1.metric("Predicted Total", f"{prediction:.2f} Kg", f"{percent_gain}%")
     met2.metric("Current Total", f"{current_total:.2f} Kg")
     met3.metric("Improvement Potential", f"{improvement_kg:.2f} Kg")
 
