@@ -1,9 +1,8 @@
 import pandas as pd
-import yaml
 from tqdm import tqdm
 
 OUTPUT_COLS = ['Name', 'Date', 'Sex', 'Age', 'BodyweightKg', 'TotalKg', 
-               'prev_squat', 'prev_bench', 'prev_deadlift', 
+               'prev_squat', 'prev_bench', 'prev_deadlift', 'prev_total',
                'avg_squat', 'avg_bench', 'avg_deadlift', 
                'days_since_last_meet', 'total_meets', 
                'percent_gain_since_last', 'career_avg_improvement_rate', 'total_std']
@@ -14,16 +13,20 @@ class FeatureEngineering():
         self.save_to_csv = save_to_csv
         self.min_meets = 3
 
-    def _create_features(self, current_meet, previous_meet):
+    def create_features(self, current_meet, previous_meet):
         '''
         Creates features base on previous SBD performance and average, 
         time-based features, percentage gain and improvement
+
+        Shared by training (per historical meet) and serving (src/inference_service.py), so the two can never drift apart.
+        current_meet only needs a 'Date'. previous_meet needs Date, TotalKg and the Best3*Kg columns, sorted chronologically.
         '''
         features = {}
 
         features['prev_squat'] = previous_meet['Best3SquatKg'].iloc[-1]
         features['prev_bench'] = previous_meet['Best3BenchKg'].iloc[-1]
         features['prev_deadlift'] = previous_meet['Best3DeadliftKg'].iloc[-1]
+        features['prev_total'] = previous_meet['TotalKg'].iloc[-1]  # persistence baseline
 
         features['avg_squat'] = previous_meet['Best3SquatKg'].mean()
         features['avg_bench'] = previous_meet['Best3BenchKg'].mean()
@@ -33,9 +36,7 @@ class FeatureEngineering():
             pd.to_datetime(current_meet['Date']) - pd.to_datetime(previous_meet['Date'].iloc[-1])
         ).days
         features['total_meets'] = len(previous_meet)
-        
-        features['total_bodyweight_ratio'] = previous_meet['TotalKg'].iloc[-1] / previous_meet['BodyweightKg'].iloc[-1]
-        
+
         if len(previous_meet) >= 2:
             first, last, second_last = previous_meet['TotalKg'].iloc[0], previous_meet['TotalKg'].iloc[-1], previous_meet['TotalKg'].iloc[-2]
             features['percent_gain_since_last'] = ((last - second_last) / second_last)
@@ -59,7 +60,7 @@ class FeatureEngineering():
             current = lifter_data.iloc[i]
             previous = lifter_data.iloc[:i]
             meet = current.to_dict()
-            meet.update(self._create_features(current, previous))
+            meet.update(self.create_features(current, previous))
             lifting_data.append(meet)
         return lifting_data[1:] if len(lifting_data) > 1 else lifting_data
 
