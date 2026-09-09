@@ -9,7 +9,8 @@ data:
 
 # time-based three-way split by date quantile
 train_test_split:
-  quantile: 0.8
+  validation_quantile: 0.7
+  test_quantile: 0.85
 
 preprocessing:
   handle_missing: "impute mean"
