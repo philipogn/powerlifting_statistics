@@ -9,6 +9,13 @@ from sklearn.preprocessing import OrdinalEncoder
 import joblib
 import yaml
 import json
+from pathlib import Path
+import sys
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+from src.evaluation import Evaluator
+
 
 class TrainingPipeline():
     def __init__(self, config_path: str='config/local.yaml'):
@@ -92,7 +99,13 @@ class TrainingPipeline():
             json.dump(self.residual_quantiles, f)
         print(f'Prediction intervals saved to "{save_path}"')
 
+    def evaluation(self, report_path='reports/evaluation.md'):
+        evaluator = Evaluator(feature_cols=self.config['features']['columns']) 
+
+        return evaluator.report(self.pipeline, self.train_df, self.test_df, save_path=report_path)
+
 if __name__ == '__main__':
     df = pd.read_csv('data/3-features/opl_features_IPF.csv')
     train = TrainingPipeline()
     train.train_from_data(df)
+    train.evaluation()
