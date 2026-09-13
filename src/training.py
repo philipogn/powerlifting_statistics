@@ -25,6 +25,8 @@ class TrainingPipeline():
         self.val_df = None
         self.test_df = None
         self.residual_quantiles = None
+        self.val_pred = None
+        self.val_residuals = None
 
     def build_pipeline(self, feature_cols):
         '''
@@ -73,12 +75,10 @@ class TrainingPipeline():
         self.print_metrics('VALIDATION', val_df['TotalKg'], val_pred)
 
         # out-of-sample residual spread -> prediction intervals at serving time
-        # (cheap global interval)
         residuals = val_df['TotalKg'].to_numpy() - val_pred
-        self.residual_quantiles = {
-            'q10': float(np.quantile(residuals, 0.1)),
-            'q90': float(np.quantile(residuals, 0.9))
-        }
+        self.val_pred = val_pred
+        self.val_residuals = residuals
+        self.residual_quantiles = self._build_intervals(residuals, val_df['days_since_last_meet'])
 
         pipeline = self.build_pipeline(feature_cols)
         pipeline.fit(pd.concat([train_df, val_df])[cols], pd.concat([train_df, val_df])['TotalKg'])
@@ -87,12 +87,42 @@ class TrainingPipeline():
         self.print_metrics('TEST', test_df['TotalKg'], test_pred)
         return pipeline
 
+    @staticmethod
+    def _build_intervals(residuals, days_since_last_meet, min_bucket_rows=100):
+        '''
+        Global q10/q90 band plus one band per layoff bucket (same bins as the evaluation report). 
+        Residual spread grows with layoff length, so a single global band doesn't cover well with returining lifters. 
+        Buckets with too few validation rows fall back to the global quantiles rather than serving noisy ones. 
+        '''
+        global_q10, global_q90 = np.quantile(residuals, [0.1, 0.9])
+        buckets = pd.cut(days_since_last_meet, bins=Evaluator.GAP_BINS, labels=Evaluator.GAP_LABELS)
+
+        by_layoff = []
+        for label, upper in zip(Evaluator.GAP_LABELS, Evaluator.GAP_BINS[1:]):
+            bucket_residuals = residuals[(buckets == label).to_numpy()]
+            if len(bucket_residuals) >= min_bucket_rows:
+                q10, q90 = np.quantile(bucket_residuals, [0.1, 0.9])
+            else:
+                q10, q90 = global_q10, global_q90
+            by_layoff.append({
+                'label': label,
+                'max_days': None if np.isinf(upper) else upper, # None for json-safe >2 years bucket
+                'q10': float(q10),
+                'q90': float(q90),
+                'n': int(len(bucket_residuals))
+            })
+
+        return {
+            'global': {'q10': float(global_q10), 'q90': float(global_q90)},
+            'by_layoff': by_layoff
+        }
+
     def save_model(self, save_path='models/XGBR_model_v1.pkl'):
         joblib.dump(self.pipeline, save_path)
 
     def save_intervals(self, save_path='models/prediction_intervals.json'):
         '''
-        residual quantiles from the validation fold, 
+        residual quantiles from the validation fold (global + per layoff bucket),
         to show a prediction range instead of a bare point estimate for streamlit
         '''
         with open(save_path, 'w') as f:
@@ -102,7 +132,10 @@ class TrainingPipeline():
     def evaluation(self, report_path='reports/evaluation.md'):
         evaluator = Evaluator(feature_cols=self.config['features']['columns']) 
 
-        return evaluator.report(self.pipeline, self.train_df, self.test_df, save_path=report_path)
+        md = evaluator.report(self.pipeline, self.train_df, self.test_df, save_path=report_path)
+        evaluator.residual_plot(self.val_residuals, self.val_pred, self.val_df,
+                                self.residual_quantiles['global'], save_path='reports/residual_plot.png')
+        return md
 
 if __name__ == '__main__':
     df = pd.read_csv('data/3-features/opl_features_IPF.csv')

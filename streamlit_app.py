@@ -4,7 +4,7 @@ import streamlit as st
 import joblib
 import pandas as pd
 
-from src.inference_service import predict_from_meets
+from src.inference_service import predict_from_meets, select_interval
 from api.scraper import MeetScraper
 
 APP_DIR = Path(__file__).resolve().parent
@@ -99,8 +99,10 @@ def main():
 
     intervals = load_intervals(INTERVALS_PATH)
     if intervals:
-        low, high = prediction + intervals['q10'], prediction + intervals['q90']
-        st.caption(f"Likely range: **{low:.1f} – {high:.1f} kg** (80% of similar predictions land in this band).")
+        band = select_interval(intervals, features.get('days_since_last_meet'))
+        low, high = prediction + band['q10'], prediction + band['q90']
+        basis = f"lifters returning after {band['label']}" if band['label'] else "similar predictions"
+        st.caption(f"Likely range: **{low:.1f} - {high:.1f} kg** (80% of {basis} land in this band).")
     st.caption(f"For reference, simply repeating the last total would predict {current_total:.1f} kg.")
 
     with st.expander("Model inputs used", expanded=False):

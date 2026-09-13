@@ -49,6 +49,23 @@ def prepare_model_input(features: dict, age: int, bodyweight: float, sex: str) -
     return pd.DataFrame([features_values])
 
 
+def select_interval(intervals: dict, days_since_last_meet) -> dict:
+    '''
+    Picks the residual band matching the lifter's layoff from the intervals file written by training.
+    '''
+    by_layoff = intervals.get("by_layoff")
+    global_band = intervals.get("global", intervals)
+    fallback = {"q10": global_band["q10"], "q90": global_band["q90"], "label": None}
+
+    if not by_layoff or days_since_last_meet is None or days_since_last_meet <= 0:
+        return fallback
+
+    for bucket in by_layoff:
+        if bucket["max_days"] is None or days_since_last_meet <= bucket["max_days"]:
+            return {"q10": bucket["q10"], "q90": bucket["q90"], "label": bucket["label"]}
+    return fallback
+
+
 def predict_from_meets(model, meets_df: pd.DataFrame, age: int, bodyweight: float, sex: str) -> Tuple[float, float, dict]:
     history_df = prepare_history(meets_df)
     if len(history_df) < 2:
