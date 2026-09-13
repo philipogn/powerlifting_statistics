@@ -2,6 +2,7 @@ from sklearn.metrics import r2_score, root_mean_squared_error, mean_absolute_err
 import numpy as np
 import pandas as pd
 import os
+import matplotlib.pyplot as plt
 
 
 class Evaluator():
@@ -79,6 +80,7 @@ class Evaluator():
         ]
         for title, table in segments.items():
             lines += [f"### {title}", "", f"{table.to_markdown()}", ""]
+        lines += ["## Residual diagnostics", "", "![Validation residuals](residual_plot.png)", ""]
         return "\n".join(lines)
 
     def report(self, pipeline, train_df, test_df, save_path=None):
@@ -92,3 +94,47 @@ class Evaluator():
                 f.write(md)
             print(f"Evaluation saved to '{save_path}'")
         return md
+
+    def residual_plot(self, residuals, val_pred, val_df, quantiles, save_path="reports/residual_plot.png"):
+        """
+        Visualisation for the validation residuals the serving intervals are built from:
+        their distribution with the saved q10/q90 band, plus residual spread vs predicted total and vs layoff length (checks whether one global band is fair)
+        """
+        data_color = "blue"
+        fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
+
+        # clip extreme outliers so the central distribution stays readable
+        # the full tails are still visible in the scatter panels
+        hist_range = tuple(np.quantile(residuals, [0.005, 0.995]))
+        axes[0].hist(residuals, bins=60, range=hist_range, color=data_color)
+        axes[0].axvline(0, color="0.3", linewidth=1)
+        axes[0].axvline(quantiles["q10"], color="0.3", linestyle="--", label=f"q10 = {quantiles['q10']:.1f}")
+        axes[0].axvline(quantiles["q90"], color="0.3", linestyle=":", label=f"q90 = {quantiles['q90']:.1f}")
+        axes[0].set_xlabel("Residual (kg)")
+        axes[0].set_ylabel("Count")
+        axes[0].set_title("Validation residuals with interval band")
+        axes[0].legend()
+
+        axes[1].scatter(val_pred, residuals, s=4, alpha=0.15, color=data_color, edgecolors="none")
+        axes[1].axhline(0, color="0.3", linewidth=1)
+        axes[1].set_xlabel("Predicted total (kg)")
+        axes[1].set_ylabel("Residual (kg)")
+        axes[1].set_title("Residuals vs predicted")
+
+        axes[2].scatter(val_df["days_since_last_meet"], residuals, s=4, alpha=0.15, color=data_color, edgecolors="none")
+        axes[2].axhline(0, color="0.3", linewidth=1)
+        axes[2].set_xlabel("Days since last meet")
+        axes[2].set_ylabel("Residual (kg)")
+        axes[2].set_title("Residuals vs layoff")
+
+        for ax in axes:
+            ax.grid(True, linewidth=0.3, alpha=0.4)
+            ax.set_axisbelow(True)
+
+        fig.tight_layout()
+        report_dir = os.path.dirname(save_path)
+        if report_dir:
+            os.makedirs(report_dir, exist_ok=True)
+        fig.savefig(save_path, dpi=150)
+        plt.close(fig)
+        print(f"Residual plot saved to '{save_path}'")
