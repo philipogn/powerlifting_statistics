@@ -5,11 +5,11 @@ import joblib
 from pathlib import Path
 from datetime import datetime
 
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+sys.path.append(str(Path(__file__).parent.parent))
 
-from data_cleaning import DataProcessor
-from feature_engineering import FeatureEngineering
-from training import TrainingPipeline
+from src.data_cleaning import DataProcessor
+from src.feature_engineering import FeatureEngineering
+from src.training import TrainingPipeline
 
 def _validate_input_csv(raw_data_path):
     if not os.path.exists(raw_data_path):
@@ -26,24 +26,29 @@ def _timestamped_path(path):
 
 
 def preprocess_step(raw_data_path):
-    print(f'[1/4] Preprocessing raw data from: {raw_data_path}')
+    print(f'[1/5] Preprocessing raw data from: {raw_data_path}')
     preprocess = DataProcessor()
     data = preprocess.transform(raw_data_path)
-    print(f'[1/4] Preprocessing complete. Rows: {len(data):,}')
+    print(f'[1/5] Preprocessing complete. Rows: {len(data):,}')
     return data
 
 def training_step(data, model_output_path):
-    print(f'[2/4] Engineering features')
+    print(f'[2/5] Engineering features')
     features = FeatureEngineering()
     engineered_features = features.engineer_features(data)
-    print(f'[2/4] Feature engineering complete. Rows: {len(engineered_features):,}')
+    print(f'[2/5] Feature engineering complete. Rows: {len(engineered_features):,}')
 
-    print(f'[3/4] Training model')
+    print(f'[3/5] Training model')
     train = TrainingPipeline()
     train.train_from_data(engineered_features)
-    print(f'[4/4] Saving model to: {model_output_path}')
+    print(f'[4/5] Evaluating against baselines')
+    os.makedirs('reports', exist_ok=True)
+    train.evaluation(report_path='reports/evaluation.md')
+
+    print(f'[5/5] Saving model to: {model_output_path}')
     joblib.dump(train.pipeline, model_output_path)
-    print(f'[4/4] Model saved successfully')
+    train.save_intervals()
+    print(f'[5/5] Model saved successfully')
 
 def run_entire_pipeline(raw_data_path, model_output_path):
     _validate_input_csv(raw_data_path)

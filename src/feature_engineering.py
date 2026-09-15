@@ -1,9 +1,8 @@
 import pandas as pd
-import yaml
 from tqdm import tqdm
 
 OUTPUT_COLS = ['Name', 'Date', 'Sex', 'Age', 'BodyweightKg', 'TotalKg', 
-               'prev_squat', 'prev_bench', 'prev_deadlift', 
+               'prev_squat', 'prev_bench', 'prev_deadlift', 'prev_total',
                'avg_squat', 'avg_bench', 'avg_deadlift', 
                'days_since_last_meet', 'total_meets', 
                'percent_gain_since_last', 'career_avg_improvement_rate', 'total_std']
@@ -14,16 +13,20 @@ class FeatureEngineering():
         self.save_to_csv = save_to_csv
         self.min_meets = 3
 
-    def _create_features(self, current_meet, previous_meet):
+    def create_features(self, current_meet, previous_meet):
         '''
         Creates features base on previous SBD performance and average, 
         time-based features, percentage gain and improvement
+
+        Shared by training (per historical meet) and serving (src/inference_service.py), so the two can never drift apart.
+        current_meet only needs a 'Date'. previous_meet needs Date, TotalKg and the Best3*Kg columns, sorted chronologically.
         '''
         features = {}
 
         features['prev_squat'] = previous_meet['Best3SquatKg'].iloc[-1]
         features['prev_bench'] = previous_meet['Best3BenchKg'].iloc[-1]
         features['prev_deadlift'] = previous_meet['Best3DeadliftKg'].iloc[-1]
+        features['prev_total'] = previous_meet['TotalKg'].iloc[-1]  # persistence baseline
 
         features['avg_squat'] = previous_meet['Best3SquatKg'].mean()
         features['avg_bench'] = previous_meet['Best3BenchKg'].mean()
@@ -33,9 +36,7 @@ class FeatureEngineering():
             pd.to_datetime(current_meet['Date']) - pd.to_datetime(previous_meet['Date'].iloc[-1])
         ).days
         features['total_meets'] = len(previous_meet)
-        
-        features['total_bodyweight_ratio'] = previous_meet['TotalKg'].iloc[-1] / previous_meet['BodyweightKg'].iloc[-1]
-        
+
         if len(previous_meet) >= 2:
             first, last, second_last = previous_meet['TotalKg'].iloc[0], previous_meet['TotalKg'].iloc[-1], previous_meet['TotalKg'].iloc[-2]
             features['percent_gain_since_last'] = ((last - second_last) / second_last)
@@ -51,17 +52,18 @@ class FeatureEngineering():
     def _process_lifter(self, lifter_data):
         '''
         Creates features based on grouped lifter data, 
-        Only can build features for lifters with at least two competition history
-        Returns list of dictionaries with features for each meet, first meet is dropped as it returns null/0 on some features
+        a row is emitted only when lifter has at least min_meets - 1 earlier meets, 
+        so the filter depends purely on each rows past and never on the lifters future meets
+        Returns list of dictionaries with features for each qualifying meet
         '''
         lifting_data = []
-        for i in range(1, len(lifter_data)):
+        for i in range(self.min_meets - 1, len(lifter_data)):
             current = lifter_data.iloc[i]
             previous = lifter_data.iloc[:i]
             meet = current.to_dict()
-            meet.update(self._create_features(current, previous))
+            meet.update(self.create_features(current, previous))
             lifting_data.append(meet)
-        return lifting_data[1:] if len(lifting_data) > 1 else lifting_data
+        return lifting_data
 
     def _save_features(self, df):
         df.to_csv(self.save_path, index=False)
@@ -70,13 +72,12 @@ class FeatureEngineering():
     def engineer_features(self, df):
         '''
         Sorts by name and date, then groups by name and creates features for each lifter
-        Only processing with at least 3 meets to prevent unstable features
+        Lifters with fewer than min_meets total meets contribute no rows (loop bound in _process_lifter),
+        to prevent unstable features without conditioning on future meet counts
         '''
         df = df.sort_values(['Name', 'Date']).reset_index(drop=True)
         all_lifting_data = []
         for name, lifter_data in tqdm(df.groupby('Name'), desc='Engineering Features...'):
-            if len(lifter_data) < self.min_meets:
-                continue
             all_lifting_data.extend(self._process_lifter(lifter_data))
         
         result = pd.DataFrame(all_lifting_data)[OUTPUT_COLS].round(5)

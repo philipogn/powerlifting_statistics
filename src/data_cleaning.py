@@ -7,11 +7,12 @@ class DataProcessor():
         'TotalKg', 'ParentFederation'
     ]
 
-    def __init__(self, save_path: str=None, save_to_csv: bool=False, event: str='SBD', equipment: str='Raw'):
+    def __init__(self, save_path: str=None, save_to_csv: bool=False, event: str='SBD', equipment: str='Raw', federation='IPF'):
         self.save_path = save_path
         self.save_to_csv = save_to_csv
         self.event = event
         self.equipment = equipment
+        self.federation = federation
 
     def _select_target_data(self, df):
         '''
@@ -22,7 +23,7 @@ class DataProcessor():
             (df['Sex'].isin(['M', 'F'])) & 
             (df['Event'] == self.event) & 
             (df['Equipment'] == self.equipment) &
-            (df['ParentFederation'] == 'IPF')
+            (df['ParentFederation'] == self.federation)
         ]
 
     def _remove_duplicate_entries(self, df):
@@ -56,7 +57,6 @@ class DataProcessor():
         squat_anomaly = df['Best3SquatKg'] < (0.5 * df[['Best3BenchKg','Best3DeadliftKg']].mean(axis=1))
         bench_anomaly = df['Best3BenchKg'] < (0.3 * df[['Best3SquatKg','Best3DeadliftKg']].mean(axis=1))
         deadlift_anomaly = df['Best3DeadliftKg'] < (0.8 * df[['Best3SquatKg','Best3BenchKg']].mean(axis=1))
-        # df['anomaly'] = squat_anomaly | bench_anomaly | deadlift_anomaly
         return df[~(squat_anomaly | bench_anomaly | deadlift_anomaly)]
 
     def _convert_to_csv(self, data):
@@ -69,7 +69,6 @@ class DataProcessor():
             raw_data_path, 
             dtype={'Tested': 'string', 'State': 'string', 'ParentFederation': 'string', 'MeetState': 'string'}
         )
-        df = df.copy()
         df = self._select_target_data(df)
         df = self._remove_duplicate_entries(df)
         df = self._remove_invalid(df)

@@ -7,7 +7,7 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from scraper import MeetScraper
+from api.scraper import MeetScraper
 from src.inference_service import predict_from_meets
 
 app = FastAPI(
@@ -95,7 +95,7 @@ def predict_from_openpowerlifting(request: UsernameRequest):
             'improvement_potential_kg': improvement_kg,
             'lifter_profile': {
                 'name': request.username,
-                'bodyweight_kg': latest_meet['Weight'],
+                'bodyweight_kg': latest_meet['BodyweightKg'],
                 'age': latest_meet['Age'],
                 'latest_competition_date': latest_meet.get('Date')
             },
@@ -110,14 +110,17 @@ def predict_from_openpowerlifting(request: UsernameRequest):
                 'days_since_last_meet': round(features['days_since_last_meet']),
                 'total_meets': round(features['total_meets']),
                 'percent_gain_since_last': round(features['percent_gain_since_last'], 4),
-                'career_avg_improvement_rate': round(features['career_avg_improvement_rate']),
-                'total_std': round(features['total_std'])
+                'career_avg_improvement_rate': round(features['career_avg_improvement_rate'], 4),
+                'total_std': round(features['total_std'], 2)
             }
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        print(f"Prediction failed for {request.username}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get('/competitions/{name}')
 def get_competition_history(name: str):

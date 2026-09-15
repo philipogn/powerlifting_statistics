@@ -1,15 +1,28 @@
+import json
+from pathlib import Path
 import streamlit as st
 import joblib
 import pandas as pd
 
-from src.inference_service import predict_from_meets
+from src.inference_service import predict_from_meets, select_interval
 from api.scraper import MeetScraper
 
-DEFAULT_MODEL_PATH = 'models/XGBR_model_v1.pkl'
+APP_DIR = Path(__file__).resolve().parent
+DEFAULT_MODEL_PATH = APP_DIR / 'models' / 'XGBR_model_v1.pkl'
+INTERVALS_PATH = APP_DIR / 'models' / 'prediction_intervals.json'
 
 @st.cache_resource
 def load_model(model_path):
     return joblib.load(model_path)
+
+@st.cache_resource
+def load_intervals(intervals_path):
+    ''' validation residual quantiles written by training '''
+    try:
+        with open(intervals_path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
 
 def main():
     # INFO/HEADERS
@@ -41,6 +54,7 @@ def main():
         loaded_model = load_model(DEFAULT_MODEL_PATH)
     except Exception as e:
         st.error(f"Could not load model from {DEFAULT_MODEL_PATH}: {e}")
+        return
 
     with st.spinner("Fetching lifting history..."):
         try:
@@ -82,6 +96,14 @@ def main():
     met1.metric("Predicted Total", f"{prediction:.2f} Kg", f"{percent_gain}%")
     met2.metric("Current Total", f"{current_total:.2f} Kg")
     met3.metric("Improvement Potential", f"{improvement_kg:.2f} Kg")
+
+    intervals = load_intervals(INTERVALS_PATH)
+    if intervals:
+        band = select_interval(intervals, features.get('days_since_last_meet'))
+        low, high = prediction + band['q10'], prediction + band['q90']
+        basis = f"lifters returning after {band['label']}" if band['label'] else "similar predictions"
+        st.caption(f"Likely range: **{low:.1f} - {high:.1f} kg** (80% of {basis} land in this band).")
+    st.caption(f"For reference, simply repeating the last total would predict {current_total:.1f} kg.")
 
     with st.expander("Model inputs used", expanded=False):
         st.json(

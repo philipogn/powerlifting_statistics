@@ -1,23 +1,25 @@
 data:
   raw_data_path: "data/1-raw/openpowerlifting-2025-09-27.csv"
 
-  feature_engineer: "data/2-preprocessed/opl_preprocessed_not_IPF.csv"
+  feature_engineer: "data/2-preprocessed/opl_preprocessed_IPF.csv"
   train_path: "data/3-features/opl_features_IPF"
-  test_path: "data/3-features/opl_features_not_IPF.csv"
+  test_path: "data/3-features/opl_features_not_IPF.csv" # further testing dataset on non IPF
 
   model_output_path: "models/XGBR_model.pkl"
 
+# time-based three-way split by date quantile
 train_test_split:
-  quantile: 0.8
+  validation_quantile: 0.7
+  test_quantile: 0.85
 
 preprocessing:
-  handle_missing: "impute mean"
+  # SimpleImputer strategy, or "native" to pass NaNs through to XGBoost
+  handle_missing: "native"
   categorical_encoding: "ordinal"
 
 model:
   xgboost:
     tree_method: "hist"
-    enable_categorical: True
     max_depth: 8
     learning_rate: 0.1
     n_estimators: 100
