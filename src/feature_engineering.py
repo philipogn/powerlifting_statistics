@@ -52,17 +52,18 @@ class FeatureEngineering():
     def _process_lifter(self, lifter_data):
         '''
         Creates features based on grouped lifter data, 
-        Only can build features for lifters with at least two competition history
-        Returns list of dictionaries with features for each meet, first meet is dropped as it returns null/0 on some features
+        a row is emitted only when lifter has at least min_meets - 1 earlier meets, 
+        so the filter depends purely on each rows past and never on the lifters future meets
+        Returns list of dictionaries with features for each qualifying meet
         '''
         lifting_data = []
-        for i in range(1, len(lifter_data)):
+        for i in range(self.min_meets - 1, len(lifter_data)):
             current = lifter_data.iloc[i]
             previous = lifter_data.iloc[:i]
             meet = current.to_dict()
             meet.update(self.create_features(current, previous))
             lifting_data.append(meet)
-        return lifting_data[1:] if len(lifting_data) > 1 else lifting_data
+        return lifting_data
 
     def _save_features(self, df):
         df.to_csv(self.save_path, index=False)
@@ -71,13 +72,12 @@ class FeatureEngineering():
     def engineer_features(self, df):
         '''
         Sorts by name and date, then groups by name and creates features for each lifter
-        Only processing with at least 3 meets to prevent unstable features
+        Lifters with fewer than min_meets total meets contribute no rows (loop bound in _process_lifter),
+        to prevent unstable features without conditioning on future meet counts
         '''
         df = df.sort_values(['Name', 'Date']).reset_index(drop=True)
         all_lifting_data = []
         for name, lifter_data in tqdm(df.groupby('Name'), desc='Engineering Features...'):
-            if len(lifter_data) < self.min_meets:
-                continue
             all_lifting_data.extend(self._process_lifter(lifter_data))
         
         result = pd.DataFrame(all_lifting_data)[OUTPUT_COLS].round(5)
