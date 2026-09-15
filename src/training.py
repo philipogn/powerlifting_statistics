@@ -33,11 +33,17 @@ class TrainingPipeline():
         Pipeline for imputation and encoding
         '''
         model_config = self.config['model']['xgboost']
+        handle_missing = self.config['preprocessing']['handle_missing']
+
+        if handle_missing == 'native':
+            numeric_step = ('features', 'passthrough', feature_cols)
+        else:
+            numeric_step = ('imputer', SimpleImputer(strategy=handle_missing), feature_cols)
 
         preprocessor = ColumnTransformer(
             transformers=[
-                ('imputer', SimpleImputer(strategy='mean'), feature_cols),
-                ('sex_encoder', OrdinalEncoder(), ['Sex'])
+                numeric_step,
+                ('sex_encoder', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), ['Sex'])
             ], remainder='drop'
         )
         return Pipeline([
@@ -64,7 +70,7 @@ class TrainingPipeline():
         test_date = df['Date'].quantile(split_config['test_quantile'])
         train_df = df[df['Date'] < val_date]
         val_df = df[(df['Date'] >= val_date) & (df['Date'] < test_date)]
-        test_df = df[df['Date'] > test_date]
+        test_df = df[df['Date'] >= test_date]
         self.train_df, self.val_df, self.test_df = train_df, val_df, test_df
 
         cols = feature_cols + ['Sex']
@@ -141,4 +147,6 @@ if __name__ == '__main__':
     df = pd.read_csv('data/3-features/opl_features_IPF.csv')
     train = TrainingPipeline()
     train.train_from_data(df)
+    train.save_model()
+    train.save_intervals()
     train.evaluation()
