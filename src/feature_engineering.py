@@ -1,5 +1,6 @@
 import pandas as pd
 from tqdm import tqdm
+import os
 
 OUTPUT_COLS = ['Name', 'Date', 'Sex', 'Age', 'BodyweightKg', 'TotalKg', 
                'prev_squat', 'prev_bench', 'prev_deadlift', 'prev_total',
@@ -65,9 +66,12 @@ class FeatureEngineering():
             lifting_data.append(meet)
         return lifting_data
 
-    def _save_features(self, df):
-        df.to_csv(self.save_path, index=False)
-        return df
+    def _save_features(self, data):
+        directory = os.path.dirname(self.save_path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        data.to_csv(self.save_path, index=False)
+        return data
 
     def engineer_features(self, df):
         '''

@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 
 class DataProcessor():
     ESSENTIAL_COLUMNS = [
@@ -60,6 +61,9 @@ class DataProcessor():
         return df[~(squat_anomaly | bench_anomaly | deadlift_anomaly)]
 
     def _convert_to_csv(self, data):
+        directory = os.path.dirname(self.save_path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
         data.to_csv(self.save_path, index=False)
         print(f'Successfully cleaned data and saved to "{self.save_path}"')
         return data
