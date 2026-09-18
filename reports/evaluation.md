@@ -5,14 +5,15 @@ Train: 1969-03-02 to 2023-03-31
 Test: 2024-07-13 to 2025-09-21
 
 
-Model MAE is **19.1 kg** vs **23.1 kg** for simply repeating the lifter's previous total, a **17.1% reduction in error** over the persistance baseline
+XGBR Model MAE is **19.1 kg** vs **23.1 kg** for simply repeating the lifter's previous total, a **17.1% reduction in error** over the persistance baseline
 
 ## Model vs baselines
 |                              |     MAE |    RMSE |     R2 |
 |:-----------------------------|--------:|--------:|-------:|
 | Predict training mean        | 135.347 | 159.548 | -0.029 |
 | Persistance (previous total) |  23.058 |  40.958 |  0.932 |
-| Model                        |  19.114 |  31.912 |  0.959 |
+| Linear regression            |  20.138 |  34.547 |  0.952 |
+| XGBRegressor Model           |  19.114 |  31.912 |  0.959 |
 ## Error by segment (MAE, kg)
 ### Days since last meet
 

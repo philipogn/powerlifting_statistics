@@ -43,12 +43,14 @@ class Evaluator():
                 .round(1)
         )
 
-    def evaluate(self, pipeline, train_df, test_df):
+    def evaluate(self, pipeline, train_df, test_df, comparison_pipelines=None):
         X_test = test_df[self.feature_cols + ["Sex"]]
         prediction = pipeline.predict(X_test)
 
         results = self._baselines(train_df, test_df)
-        results["Model"] = self._metrics(test_df[self.target], prediction)
+        for name, comp_pipeline in (comparison_pipelines or {}).items():
+            results[name] = self._metrics(test_df[self.target], comp_pipeline.predict(X_test))
+        results["XGBRegressor Model"] = self._metrics(test_df[self.target], prediction)
 
         segments = {
             "Days since last meet": self._segment_table(
@@ -60,7 +62,7 @@ class Evaluator():
 
     def to_markdown(self, results, segments, train_df, test_df):
         persist_mae = results["Persistance (previous total)"]["MAE"]
-        model_mae = results["Model"]["MAE"]
+        model_mae = results["XGBRegressor Model"]["MAE"]
         improvement = (1 - (model_mae / persist_mae)) * 100
 
         lines = [
@@ -70,7 +72,7 @@ class Evaluator():
             f"Train: {train_df["Date"].min().date()} to {train_df["Date"].max().date()}",
             f"Test: {test_df["Date"].min().date()} to {test_df["Date"].max().date()}\n\n",
 
-            f"Model MAE is **{model_mae:.1f} kg** vs **{persist_mae:.1f} kg** for simply repeating the lifter's previous total, "
+            f"XGBR Model MAE is **{model_mae:.1f} kg** vs **{persist_mae:.1f} kg** for simply repeating the lifter's previous total, "
             f"a **{improvement:.1f}% reduction in error** over the persistance baseline\n",
 
             f"## Model vs baselines",
@@ -83,8 +85,8 @@ class Evaluator():
         lines += ["## Residual diagnostics", "", "![Validation residuals](residual_plot.png)", ""]
         return "\n".join(lines)
 
-    def report(self, pipeline, train_df, test_df, save_path=None):
-        results, segments = self.evaluate(pipeline, train_df, test_df)
+    def report(self, pipeline, train_df, test_df, save_path=None, comparison_pipelines=None):
+        results, segments = self.evaluate(pipeline, train_df, test_df, comparison_pipelines=comparison_pipelines)
         md = self.to_markdown(results, segments, train_df, test_df)
         if save_path:
             report_dir = os.path.dirname(save_path)

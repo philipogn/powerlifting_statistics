@@ -5,7 +5,8 @@ from sklearn.metrics import r2_score, mean_absolute_error, root_mean_squared_err
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
+from sklearn.linear_model import LinearRegression
 import joblib
 import yaml
 import json
@@ -49,6 +50,28 @@ class TrainingPipeline():
         return Pipeline([
             ('preprocessor', preprocessor),
             ('model', XGBRegressor(**model_config))
+        ])
+
+    def build_linear_pipeline(self, feature_cols):
+        '''
+        Linear baseline for the evaluation report (comparison only).
+        LR can't take NaNs, so always impute, scale numerics, and one-hot encode for Sex.
+        '''
+        handle_missing = self.config['preprocessing']['handle_missing']
+        impute_strategy = 'median' if handle_missing == 'native' else handle_missing
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ('numeric', Pipeline([
+                    ('imputer', SimpleImputer(strategy=impute_strategy)),
+                    ('scaler', StandardScaler())
+                ]), feature_cols),
+                ('sex_encoder', OneHotEncoder(handle_unknown='ignore'), ['Sex'])
+            ], remainder='drop'
+        )
+        return Pipeline([
+            ('preprocessor', preprocessor),
+            ('model', LinearRegression())
         ])
 
     @staticmethod
@@ -136,9 +159,18 @@ class TrainingPipeline():
         print(f'Prediction intervals saved to "{save_path}"')
 
     def evaluation(self, report_path='reports/evaluation.md'):
-        evaluator = Evaluator(feature_cols=self.config['features']['columns']) 
+        feature_cols = self.config['features']['columns']
+        cols = feature_cols + ['Sex']
 
-        md = evaluator.report(self.pipeline, self.train_df, self.test_df, save_path=report_path)
+        # fit on the same train+val data as the final model so the comparison is fair
+        fit_df = pd.concat([self.train_df, self.val_df])
+        linear_pipeline = self.build_linear_pipeline(feature_cols)
+        linear_pipeline.fit(fit_df[cols], fit_df['TotalKg'])
+
+        evaluator = Evaluator(feature_cols=feature_cols)
+
+        md = evaluator.report(self.pipeline, self.train_df, self.test_df, save_path=report_path,
+                              comparison_pipelines={'Linear regression': linear_pipeline})
         evaluator.residual_plot(self.val_residuals, self.val_pred, self.val_df,
                                 self.residual_quantiles['global'], save_path='reports/residual_plot.png')
         return md
